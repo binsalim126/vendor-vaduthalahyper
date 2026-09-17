@@ -19,12 +19,13 @@ import {
   RefreshCw,
   Eye,
   SlidersHorizontal,
-  X
+  X,
+  Trash2
 } from 'lucide-react';
 import { FormQuestion, SubmissionStatus, VendorSubmission } from '../../lib/types';
 import { exportSubmissionsToExcel } from '../../lib/exportExcel';
 import { SubmissionDetailModal } from './SubmissionDetailModal';
-import { updateSubmissionStatus, deleteSubmission } from '../../lib/supabase';
+import { updateSubmissionStatus, deleteSubmission, clearAllSubmissions } from '../../lib/supabase';
 
 interface SubmissionsViewProps {
   submissions: VendorSubmission[];
@@ -59,6 +60,21 @@ export const SubmissionsView: React.FC<SubmissionsViewProps> = ({
   // Modal detail view state
   const [selectedSubmission, setSelectedSubmission] = useState<VendorSubmission | null>(null);
 
+  // Multi-select for bulk delete
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
   // Toggle single accordion
   const toggleExpand = (id: string) => {
     setExpandedIds((prev) => {
@@ -89,9 +105,36 @@ export const SubmissionsView: React.FC<SubmissionsViewProps> = ({
     );
   };
 
-  const handleDelete = async (id: string) => {
-    await deleteSubmission(id);
-    onSubmissionsChange(submissions.filter((s) => s.id !== id));
+  const handleDelete = async (id: string, ventureName?: string) => {
+    const label = ventureName ? `vendor "${ventureName}" (${id})` : `vendor registration #${id}`;
+    if (window.confirm(`Are you sure you want to permanently delete ${label}? This cannot be undone.`)) {
+      await deleteSubmission(id);
+      onSubmissionsChange(submissions.filter((s) => s.id !== id));
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+    }
+  };
+
+  const handleDeleteSelected = async () => {
+    if (selectedIds.size === 0) return;
+    const count = selectedIds.size;
+    if (window.confirm(`Are you sure you want to permanently delete ${count} selected vendor(s)?`)) {
+      const idsToDelete = Array.from(selectedIds);
+      await Promise.all(idsToDelete.map((id) => deleteSubmission(id)));
+      onSubmissionsChange(submissions.filter((s) => !selectedIds.has(s.id)));
+      setSelectedIds(new Set());
+    }
+  };
+
+  const handleClearAll = async () => {
+    if (window.confirm('Delete ALL vendor registrations? This will clear all submissions permanently.')) {
+      await clearAllSubmissions();
+      onSubmissionsChange([]);
+      setSelectedIds(new Set());
+    }
   };
 
   // Filter logic
@@ -237,6 +280,18 @@ export const SubmissionsView: React.FC<SubmissionsViewProps> = ({
               <Printer className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Print View</span>
             </button>
+
+            {submissions.length > 0 && (
+              <button
+                type="button"
+                onClick={handleClearAll}
+                className="px-3.5 py-2.5 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-xs"
+                title="Clear all submissions"
+              >
+                <Trash2 className="w-3.5 h-3.5 text-red-600" />
+                <span>Clear All</span>
+              </button>
+            )}
           </div>
         </div>
 
@@ -341,6 +396,38 @@ export const SubmissionsView: React.FC<SubmissionsViewProps> = ({
         ) : null}
       </div>
 
+      {/* Batch Selection Action Bar */}
+      {selectedIds.size > 0 && (
+        <div className="bg-slate-900 text-white p-3.5 rounded-2xl flex flex-wrap items-center justify-between gap-3 shadow-lg border border-slate-700">
+          <div className="flex items-center gap-2.5">
+            <span className="text-xs font-mono font-bold bg-emerald-500 text-slate-950 px-2.5 py-0.5 rounded-full">
+              {selectedIds.size}
+            </span>
+            <span className="text-xs font-bold text-slate-200">
+              {selectedIds.size === 1 ? 'vendor selected' : 'vendors selected'}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setSelectedIds(new Set())}
+              className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold transition-colors"
+            >
+              Deselect All
+            </button>
+            <button
+              type="button"
+              onClick={handleDeleteSelected}
+              className="px-4 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-red-900/40 flex items-center gap-1.5 active:scale-95"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>Delete Selected ({selectedIds.size})</span>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Day-by-Day Grouped Accordion List */}
       {groupedSubmissions.length === 0 ? (
         <div className="bg-white rounded-3xl p-12 text-center border border-slate-200/80 shadow-xs">
@@ -370,6 +457,7 @@ export const SubmissionsView: React.FC<SubmissionsViewProps> = ({
               <div className="space-y-3">
                 {group.submissions.map((sub) => {
                   const isExpanded = expandedIds.has(sub.id);
+                  const isSelected = selectedIds.has(sub.id);
                   const statusInfo = STATUS_CONFIG[sub.status || 'new'];
                   const formattedTime = new Date(sub.created_at).toLocaleTimeString('en-IN', {
                     hour: '2-digit',
@@ -390,15 +478,32 @@ export const SubmissionsView: React.FC<SubmissionsViewProps> = ({
                   return (
                     <div
                       key={sub.id}
-                      className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs hover:shadow-xs transition-all overflow-hidden"
+                      className={`bg-white rounded-2xl border transition-all overflow-hidden ${
+                        isSelected
+                          ? 'border-emerald-500 ring-1 ring-emerald-500 shadow-xs'
+                          : 'border-slate-200/90 shadow-2xs hover:shadow-xs'
+                      }`}
                     >
                       {/* Accordion Summary Row */}
                       <div
                         onClick={() => toggleExpand(sub.id)}
                         className="p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 cursor-pointer hover:bg-slate-50/50 transition-colors"
                       >
-                        {/* Left Side: Venture, Company, Phone */}
-                        <div className="flex items-start gap-3.5">
+                        {/* Left Side: Checkbox, Expand Chevron, Venture, Company, Phone */}
+                        <div className="flex items-start gap-3">
+                          {/* Multi-select checkbox */}
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={(e) => {
+                              e.stopPropagation();
+                              toggleSelect(sub.id);
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                            className="w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer accent-emerald-600 mt-1 shrink-0"
+                            title="Select vendor"
+                          />
+
                           <button
                             type="button"
                             className="mt-1 p-1 rounded-lg text-slate-400 hover:text-emerald-700 hover:bg-emerald-50 transition-colors shrink-0"
@@ -437,7 +542,7 @@ export const SubmissionsView: React.FC<SubmissionsViewProps> = ({
                               </span>
                               <span className="text-slate-300">•</span>
                               <span className="flex items-center gap-1 text-slate-400">
-                                <Clock className="w-3 h-3" />
+                                <Clock className="w-3.5 h-3.5" />
                                 {formattedTime}
                               </span>
                             </div>
@@ -484,6 +589,17 @@ export const SubmissionsView: React.FC<SubmissionsViewProps> = ({
                             <option value="approved">Approved</option>
                             <option value="rejected">Rejected</option>
                           </select>
+
+                          {/* Direct Delete Vendor Button */}
+                          <button
+                            type="button"
+                            onClick={() => handleDelete(sub.id, sub.venture_name)}
+                            className="p-2 bg-red-50 hover:bg-red-100 text-red-600 hover:text-red-700 border border-red-200/80 rounded-xl text-xs font-semibold flex items-center gap-1 transition-colors"
+                            title={`Delete vendor "${sub.venture_name}"`}
+                          >
+                            <Trash2 className="w-3.5 h-3.5 text-red-600" />
+                            <span className="hidden sm:inline">Delete</span>
+                          </button>
                         </div>
                       </div>
 
@@ -557,6 +673,23 @@ export const SubmissionsView: React.FC<SubmissionsViewProps> = ({
                                 <span>{sub.notes}</span>
                               </div>
                             )}
+
+                            {/* Card Footer Actions */}
+                            <div className="pt-2 border-t border-slate-200/70 flex items-center justify-between">
+                              <span className="text-[10px] text-slate-400 font-mono">
+                                Registered: {new Date(sub.created_at).toLocaleString('en-IN')}
+                              </span>
+
+                              <button
+                                type="button"
+                                onClick={() => handleDelete(sub.id, sub.venture_name)}
+                                className="px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 hover:text-red-700 border border-red-200 rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5"
+                                title="Delete this vendor registration"
+                              >
+                                <Trash2 className="w-3.5 h-3.5 text-red-600" />
+                                <span>Delete Vendor Record</span>
+                              </button>
+                            </div>
                           </motion.div>
                         )}
                       </AnimatePresence>

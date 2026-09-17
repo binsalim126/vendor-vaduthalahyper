@@ -4,11 +4,70 @@ import { DEFAULT_QUESTIONS, INITIAL_SUBMISSIONS } from './mockData';
 
 // Storage keys for local fallback
 const STORAGE_KEYS = {
-  QUESTIONS: 'vhs_form_questions_v1',
-  SUBMISSIONS: 'vhs_vendor_submissions_v1',
+  QUESTIONS: 'vhs_form_questions_v3',
+  SUBMISSIONS: 'vhs_vendor_submissions_v3',
   AUTH: 'vhs_admin_auth_v1',
   SUPABASE_CONFIG: 'vhs_supabase_config_v1',
 };
+
+// Known legacy sample IDs to auto-purge
+const LEGACY_MOCK_IDS = new Set([
+  'VHS-20260917-8492',
+  'VHS-20260917-7104',
+  'VHS-20260917-6320',
+  'VHS-20260916-5219',
+  'VHS-20260916-4108',
+  'VHS-20260915-3094',
+  'VHS-20260914-2081',
+]);
+
+export function isSampleSubmission(sub: VendorSubmission): boolean {
+  if (!sub) return false;
+  if (LEGACY_MOCK_IDS.has(sub.id)) return true;
+  const name = (sub.venture_name || '').toLowerCase();
+  const comp = (sub.company_name || '').toLowerCase();
+  if (
+    name.includes('greenvalley') ||
+    name.includes('highland dairy') ||
+    name.includes('oceanfresh') ||
+    name.includes('bakecraft') ||
+    name.includes('cleanmax') ||
+    name.includes('tropical beverages') ||
+    name.includes('prime mill')
+  ) {
+    return true;
+  }
+  if (
+    comp.includes('greenvalley') ||
+    comp.includes('highland milk') ||
+    comp.includes('munambam') ||
+    comp.includes('bakecraft') ||
+    comp.includes('southern chemicals') ||
+    comp.includes('tropical agro') ||
+    comp.includes('prime agro')
+  ) {
+    return true;
+  }
+  return false;
+}
+
+// Immediately wipe all old mock storage in browser
+try {
+  localStorage.removeItem('vhs_vendor_submissions_v1');
+  localStorage.removeItem('vhs_vendor_submissions_v2');
+  localStorage.removeItem('vhs_form_questions_v1');
+  localStorage.removeItem('vhs_form_questions_v2');
+
+  const existingSubs = localStorage.getItem(STORAGE_KEYS.SUBMISSIONS);
+  if (existingSubs) {
+    const parsed: VendorSubmission[] = JSON.parse(existingSubs);
+    const cleaned = parsed.filter((s) => !isSampleSubmission(s));
+    localStorage.setItem(STORAGE_KEYS.SUBMISSIONS, JSON.stringify(cleaned));
+  }
+} catch (e) {
+  console.warn('Could not auto-clean localStorage sample data', e);
+}
+
 
 // Initial default configuration
 let supabaseConfig = {
@@ -141,7 +200,14 @@ function getLocalQuestions(): FormQuestion[] {
       localStorage.setItem(STORAGE_KEYS.QUESTIONS, JSON.stringify(DEFAULT_QUESTIONS));
       return DEFAULT_QUESTIONS;
     }
-    return JSON.parse(data);
+    const parsed: FormQuestion[] = JSON.parse(data);
+    return parsed.filter(
+      (q) =>
+        q.id !== 'cust_delivery_lead_time' &&
+        q.id !== 'cust_vendor_tier' &&
+        q.id !== 'cust_fssai_gst' &&
+        q.id !== 'cust_sample_availability'
+    );
   } catch {
     return DEFAULT_QUESTIONS;
   }
@@ -155,12 +221,13 @@ function getLocalSubmissions(): VendorSubmission[] {
   try {
     const data = localStorage.getItem(STORAGE_KEYS.SUBMISSIONS);
     if (!data) {
-      localStorage.setItem(STORAGE_KEYS.SUBMISSIONS, JSON.stringify(INITIAL_SUBMISSIONS));
-      return INITIAL_SUBMISSIONS;
+      localStorage.setItem(STORAGE_KEYS.SUBMISSIONS, JSON.stringify([]));
+      return [];
     }
-    return JSON.parse(data);
+    const parsed: VendorSubmission[] = JSON.parse(data);
+    return parsed.filter((s) => !isSampleSubmission(s));
   } catch {
-    return INITIAL_SUBMISSIONS;
+    return [];
   }
 }
 
@@ -252,7 +319,17 @@ export async function fetchSubmissions(): Promise<VendorSubmission[]> {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      if (data) return data as VendorSubmission[];
+      if (data) {
+        // Auto purge sample submissions from Supabase if found
+        const sampleRecords = data.filter((s: VendorSubmission) => isSampleSubmission(s));
+        if (sampleRecords.length > 0) {
+          const sampleIds = sampleRecords.map((s: VendorSubmission) => s.id);
+          client.from('submissions').delete().in('id', sampleIds).then(() => {});
+        }
+        const cleaned = data.filter((s: VendorSubmission) => !isSampleSubmission(s)) as VendorSubmission[];
+        setLocalSubmissions(cleaned);
+        return cleaned;
+      }
     } catch (err) {
       console.warn('Supabase fetch submissions failed, using local store:', err);
     }
@@ -351,6 +428,48 @@ export async function deleteSubmission(id: string): Promise<boolean> {
   setLocalSubmissions(filtered);
   return true;
 }
+
+export async function clearAllSubmissions(): Promise<boolean> {
+  const client = getSupabaseClient();
+  if (client) {
+    try {
+      const { error } = await client
+        .from('submissions')
+        .delete()
+        .neq('id', '___force_clear_all___');
+
+      if (error) console.warn('Supabase clear submissions error:', error);
+    } catch (err) {
+      console.warn('Supabase clear submissions failed:', err);
+    }
+  }
+
+  localStorage.removeItem(STORAGE_KEYS.SUBMISSIONS);
+  localStorage.removeItem('vhs_vendor_submissions_v1');
+  localStorage.removeItem('vhs_vendor_submissions_v2');
+  localStorage.removeItem('vhs_vendor_submissions_v3');
+  setLocalSubmissions([]);
+  return true;
+}
+
+export async function resetQuestionsToCore(): Promise<FormQuestion[]> {
+  const client = getSupabaseClient();
+  if (client) {
+    try {
+      // Delete non-default questions from Supabase if any
+      await client
+        .from('form_questions')
+        .delete()
+        .eq('is_default', false);
+    } catch (err) {
+      console.warn('Supabase reset questions failed:', err);
+    }
+  }
+
+  setLocalQuestions(DEFAULT_QUESTIONS);
+  return DEFAULT_QUESTIONS;
+}
+
 
 // ---------------- ADMIN AUTHENTICATION ---------------- //
 

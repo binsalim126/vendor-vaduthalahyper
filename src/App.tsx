@@ -19,7 +19,7 @@ export function App() {
   
   // Data States
   const [questions, setQuestions] = useState<FormQuestion[]>(DEFAULT_QUESTIONS);
-  const [submissions, setSubmissions] = useState<VendorSubmission[]>(INITIAL_SUBMISSIONS);
+  const [submissions, setSubmissions] = useState<VendorSubmission[]>([]);
   const [adminUser, setAdminUser] = useState<AdminUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 

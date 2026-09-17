@@ -240,6 +240,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             questions={questions}
             onNavigateTab={(tab) => setActiveTab(tab)}
             onOpenPrintReport={handleOpenPrintReport}
+            onSubmissionsChange={onSubmissionsChange}
           />
         )}
 

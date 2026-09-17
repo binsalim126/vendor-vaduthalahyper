@@ -11,16 +11,19 @@ import {
   Sparkles, 
   Store, 
   TrendingUp,
-  Tag
+  Tag,
+  Trash2
 } from 'lucide-react';
 import { FormQuestion, SubmissionStatus, VendorSubmission } from '../../lib/types';
 import { exportSubmissionsToExcel } from '../../lib/exportExcel';
+import { deleteSubmission } from '../../lib/supabase';
 
 interface DashboardOverviewProps {
   submissions: VendorSubmission[];
   questions: FormQuestion[];
   onNavigateTab: (tab: 'submissions' | 'builder' | 'settings') => void;
   onOpenPrintReport: (subs: VendorSubmission[]) => void;
+  onSubmissionsChange?: (submissions: VendorSubmission[]) => void;
 }
 
 export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
@@ -28,6 +31,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
   questions,
   onNavigateTab,
   onOpenPrintReport,
+  onSubmissionsChange,
 }) => {
   const totalSubmissions = submissions.length;
 
@@ -62,6 +66,16 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
     contacted: submissions.filter((s) => s.status === 'contacted').length,
     approved: submissions.filter((s) => s.status === 'approved').length,
     rejected: submissions.filter((s) => s.status === 'rejected').length,
+  };
+
+  const handleDelete = async (id: string, name?: string) => {
+    const label = name ? `vendor "${name}" (${id})` : `vendor registration #${id}`;
+    if (window.confirm(`Are you sure you want to delete ${label}?`)) {
+      await deleteSubmission(id);
+      if (onSubmissionsChange) {
+        onSubmissionsChange(submissions.filter((s) => s.id !== id));
+      }
+    }
   };
 
   return (
@@ -286,36 +300,54 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead>
-              <tr className="border-b border-slate-100 text-slate-400 font-semibold uppercase tracking-wider">
-                <th className="pb-3 font-semibold">Reference ID</th>
-                <th className="pb-3 font-semibold">Venture Name</th>
-                <th className="pb-3 font-semibold">Company</th>
-                <th className="pb-3 font-semibold">Phone</th>
-                <th className="pb-3 font-semibold">Products</th>
-                <th className="pb-3 font-semibold">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 font-medium">
-              {submissions.slice(0, 5).map((s) => (
-                <tr key={s.id} className="hover:bg-slate-50/70 transition-colors">
-                  <td className="py-3 font-mono font-bold text-slate-700">{s.id}</td>
-                  <td className="py-3 font-bold text-slate-900">{s.venture_name}</td>
-                  <td className="py-3 text-slate-600">{s.company_name}</td>
-                  <td className="py-3 font-mono text-slate-700">{s.phone}</td>
-                  <td className="py-3 text-slate-500 max-w-[200px] truncate">
-                    {Array.isArray(s.products) ? s.products.join(', ') : s.products}
-                  </td>
-                  <td className="py-3">
-                    <span className="capitalize px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700">
-                      {s.status}
-                    </span>
-                  </td>
+          {submissions.length === 0 ? (
+            <div className="py-8 text-center">
+              <p className="text-xs text-slate-400">No vendor registrations received yet. Incoming submissions will appear here live.</p>
+            </div>
+          ) : (
+            <table className="w-full text-left text-xs">
+              <thead>
+                <tr className="border-b border-slate-100 text-slate-400 font-semibold uppercase tracking-wider">
+                  <th className="pb-3 font-semibold">Reference ID</th>
+                  <th className="pb-3 font-semibold">Venture Name</th>
+                  <th className="pb-3 font-semibold">Company</th>
+                  <th className="pb-3 font-semibold">Phone</th>
+                  <th className="pb-3 font-semibold">Products</th>
+                  <th className="pb-3 font-semibold">Status</th>
+                  <th className="pb-3 font-semibold text-right">Action</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-slate-100 font-medium">
+                {submissions.slice(0, 5).map((s) => (
+                  <tr key={s.id} className="hover:bg-slate-50/70 transition-colors">
+                    <td className="py-3 font-mono font-bold text-slate-700">{s.id}</td>
+                    <td className="py-3 font-bold text-slate-900">{s.venture_name}</td>
+                    <td className="py-3 text-slate-600">{s.company_name}</td>
+                    <td className="py-3 font-mono text-slate-700">{s.phone}</td>
+                    <td className="py-3 text-slate-500 max-w-[200px] truncate">
+                      {Array.isArray(s.products) ? s.products.join(', ') : s.products}
+                    </td>
+                    <td className="py-3">
+                      <span className="capitalize px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700">
+                        {s.status}
+                      </span>
+                    </td>
+                    <td className="py-3 text-right">
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(s.id, s.venture_name)}
+                        className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors inline-flex items-center gap-1 text-xs font-semibold"
+                        title={`Delete vendor "${s.venture_name}"`}
+                      >
+                        <Trash2 className="w-3.5 h-3.5 text-red-500" />
+                        <span className="hidden sm:inline text-red-600">Delete</span>
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
     </div>

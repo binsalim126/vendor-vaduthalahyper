@@ -10,15 +10,19 @@ import {
   Server, 
   Code2, 
   Layers, 
-  AlertCircle 
+  AlertCircle,
+  Trash2,
+  RotateCcw
 } from 'lucide-react';
 import { 
   getStoredSupabaseConfig, 
   saveSupabaseConfig, 
   SUPABASE_SQL_SCHEMA, 
-  getSupabaseClient 
+  getSupabaseClient,
+  clearAllSubmissions,
+  resetQuestionsToCore
 } from '../../lib/supabase';
-import { DEFAULT_QUESTIONS, INITIAL_SUBMISSIONS } from '../../lib/mockData';
+import { DEFAULT_QUESTIONS } from '../../lib/mockData';
 
 interface SettingsViewProps {
   onDataReset: () => void;
@@ -31,6 +35,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onDataReset }) => {
   const [isCopied, setIsCopied] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saved' | 'error'>('idle');
   const [testResult, setTestResult] = useState<string | null>(null);
+  const [isClearing, setIsClearing] = useState(false);
 
   const handleSaveConfig = (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,6 +43,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onDataReset }) => {
     if (success) {
       setSaveStatus('saved');
       setTimeout(() => setSaveStatus('idle'), 2500);
+      onDataReset();
     } else {
       setSaveStatus('error');
     }
@@ -53,7 +59,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onDataReset }) => {
     setTestResult('Testing connection...');
     const client = getSupabaseClient();
     if (!client) {
-      setTestResult('No Supabase credentials configured. Running in high-performance local store mode.');
+      setTestResult('No Supabase credentials configured. Running in local store mode.');
       return;
     }
 
@@ -69,14 +75,40 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onDataReset }) => {
     }
   };
 
-  const handleResetSampleData = () => {
-    if (window.confirm('Reset local submissions and questions to the realistic sample dataset?')) {
-      localStorage.setItem('vhs_form_questions_v1', JSON.stringify(DEFAULT_QUESTIONS));
-      localStorage.setItem('vhs_vendor_submissions_v1', JSON.stringify(INITIAL_SUBMISSIONS));
-      onDataReset();
-      alert('Sample dataset restored successfully.');
+  const handleClearAllSubmissions = async () => {
+    if (window.confirm('Are you sure you want to delete ALL vendor submissions? This will remove all records from the app and Supabase.')) {
+      setIsClearing(true);
+      try {
+        await clearAllSubmissions();
+        onDataReset();
+        alert('All vendor submissions have been successfully cleared.');
+      } catch (err: any) {
+        alert('Error clearing submissions: ' + err.message);
+      } finally {
+        setIsClearing(false);
+      }
     }
   };
+
+  const handleResetQuestionsToCore = async () => {
+    if (window.confirm('Reset questions to the 4 default core fields? Any custom created questions will be removed.')) {
+      await resetQuestionsToCore();
+      onDataReset();
+      alert('Form questions reset to core defaults.');
+    }
+  };
+
+  const handleRefreshFromSupabase = () => {
+    localStorage.removeItem('vhs_vendor_submissions_v1');
+    localStorage.removeItem('vhs_vendor_submissions_v2');
+    localStorage.removeItem('vhs_vendor_submissions_v3');
+    localStorage.removeItem('vhs_form_questions_v1');
+    localStorage.removeItem('vhs_form_questions_v2');
+    localStorage.removeItem('vhs_form_questions_v3');
+    onDataReset();
+    alert('Refreshed data directly from Supabase backend.');
+  };
+
 
   return (
     <div className="space-y-6">
@@ -167,28 +199,49 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onDataReset }) => {
           )}
         </div>
 
-        {/* Demo Data & Quick Tools */}
+        {/* Live Data Management & Quick Tools */}
         <div className="lg:col-span-5 space-y-4">
           <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs space-y-4">
             <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
               <Layers className="w-4 h-4 text-emerald-600" />
               <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
-                Sample Data Management
+                Data Management
               </h3>
             </div>
 
             <p className="text-xs text-slate-500 leading-relaxed font-normal">
-              Reset your workspace data to the default realistic FMCG/grocery supplier dataset anytime for demonstrations or presentations.
+              Delete all records to start completely clean, or sync real-time state with Supabase.
             </p>
 
-            <button
-              type="button"
-              onClick={handleResetSampleData}
-              className="w-full py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-2"
-            >
-              <RefreshCw className="w-3.5 h-3.5 text-slate-600" />
-              <span>Reset & Reload Sample Data</span>
-            </button>
+            <div className="space-y-2.5">
+              <button
+                type="button"
+                disabled={isClearing}
+                onClick={handleClearAllSubmissions}
+                className="w-full py-2.5 px-4 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-2"
+              >
+                <Trash2 className="w-3.5 h-3.5 text-red-600" />
+                <span>{isClearing ? 'Clearing...' : 'Clear All Vendor Submissions'}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleResetQuestionsToCore}
+                className="w-full py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-2"
+              >
+                <RotateCcw className="w-3.5 h-3.5 text-slate-600" />
+                <span>Reset Questions to 4 Core Fields</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleRefreshFromSupabase}
+                className="w-full py-2.5 px-4 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-2"
+              >
+                <RefreshCw className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Force Refresh from Supabase</span>
+              </button>
+            </div>
           </div>
 
           <div className="bg-emerald-50/70 p-5 rounded-3xl border border-emerald-200/70 space-y-2 text-emerald-950 text-xs">

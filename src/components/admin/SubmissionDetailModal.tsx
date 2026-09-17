@@ -116,6 +116,20 @@ export const SubmissionDetailModal: React.FC<SubmissionDetailModalProps> = ({
               </button>
               <button
                 type="button"
+                onClick={() => {
+                  if (window.confirm(`Are you sure you want to permanently delete vendor "${submission.venture_name}" (#${submission.id})?`)) {
+                    onDelete(submission.id);
+                    onClose();
+                  }
+                }}
+                className="px-3 py-1.5 bg-red-500/20 hover:bg-red-500/30 text-red-300 hover:text-red-200 border border-red-500/40 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors"
+                title="Delete this vendor"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Delete</span>
+              </button>
+              <button
+                type="button"
                 onClick={onClose}
                 className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors"
               >
@@ -319,15 +333,15 @@ export const SubmissionDetailModal: React.FC<SubmissionDetailModalProps> = ({
             <button
               type="button"
               onClick={() => {
-                if (window.confirm(`Are you sure you want to delete submission #${submission.id}?`)) {
+                if (window.confirm(`Are you sure you want to permanently delete vendor "${submission.venture_name}" (#${submission.id})?`)) {
                   onDelete(submission.id);
                   onClose();
                 }
               }}
-              className="text-xs font-semibold text-red-600 hover:text-red-700 hover:bg-red-50 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5"
+              className="text-xs font-bold text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 px-3.5 py-2 rounded-xl transition-colors flex items-center gap-1.5 shadow-2xs"
             >
-              <Trash2 className="w-3.5 h-3.5" />
-              <span>Delete Submission</span>
+              <Trash2 className="w-3.5 h-3.5 text-red-600" />
+              <span>Delete Vendor</span>
             </button>
 
             <button
