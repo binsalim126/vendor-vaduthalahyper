@@ -25,7 +25,7 @@ import {
 import { FormQuestion, SubmissionStatus, VendorSubmission } from '../../lib/types';
 import { exportSubmissionsToExcel } from '../../lib/exportExcel';
 import { SubmissionDetailModal } from './SubmissionDetailModal';
-import { updateSubmissionStatus, deleteSubmission, clearAllSubmissions } from '../../lib/supabase';
+import { updateSubmissionStatus, deleteSubmission, clearAllSubmissions, fetchSubmissions } from '../../lib/supabase';
 
 interface SubmissionsViewProps {
   submissions: VendorSubmission[];
@@ -53,6 +53,19 @@ export const SubmissionsView: React.FC<SubmissionsViewProps> = ({
   const [dateFilter, setDateFilter] = useState<'all' | 'today' | 'yesterday' | '7days' | 'month' | 'custom'>('all');
   const [customDate, setCustomDate] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const handleManualRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      const latest = await fetchSubmissions();
+      onSubmissionsChange(latest);
+    } catch (err) {
+      console.warn('Refresh error:', err);
+    } finally {
+      setTimeout(() => setIsRefreshing(false), 500);
+    }
+  };
 
   // Accordion state (expanded submission IDs)
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
@@ -267,6 +280,17 @@ export const SubmissionsView: React.FC<SubmissionsViewProps> = ({
 
           {/* Export & Print Actions */}
           <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={handleManualRefresh}
+              disabled={isRefreshing}
+              className="px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-xs border border-slate-200"
+              title="Sync & refresh latest vendor submissions"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 text-emerald-600 ${isRefreshing ? 'animate-spin' : ''}`} />
+              <span>{isRefreshing ? 'Syncing...' : 'Refresh Data'}</span>
+            </button>
+
             <button
               type="button"
               onClick={() => exportSubmissionsToExcel(filteredSubmissions, questions)}

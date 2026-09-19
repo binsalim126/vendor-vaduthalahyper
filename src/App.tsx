@@ -114,6 +114,7 @@ export function App() {
     setAdminUser(user);
     setView('admin_dashboard');
     window.location.hash = '#admin';
+    fetchSubmissions().then(setSubmissions).catch(() => {});
   };
 
   const handleAdminLogout = () => {
@@ -123,6 +124,7 @@ export function App() {
   };
 
   const handleOpenAdminLogin = () => {
+    fetchSubmissions().then(setSubmissions).catch(() => {});
     if (adminUser) {
       setView('admin_dashboard');
       window.location.hash = '#admin';
