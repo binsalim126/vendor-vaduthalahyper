@@ -421,7 +421,7 @@ export async function createVendorSubmission(
   const newId = `VHS-${dateStr}-${randomSuffix}`;
   const nowIso = new Date().toISOString();
 
-  // Store product_items both as top-level and embedded inside custom_answers._product_items for guaranteed DB compatibility
+  // Embed product_items in custom_answers._product_items for guaranteed DB schema compatibility across all versions
   const enrichedCustomAnswers = {
     ...(submissionData.custom_answers || {}),
     _product_items: submissionData.product_items || [],
@@ -435,63 +435,24 @@ export async function createVendorSubmission(
     custom_answers: enrichedCustomAnswers,
   };
 
-  // Always save locally immediately so vendor screen responds instantly without data loss
+  // 1. Always update local storage first so vendor screen responds instantly without data loss
   const localSubmissions = getLocalSubmissions();
   localSubmissions.unshift(newSubmission);
   setLocalSubmissions(localSubmissions);
 
+  // 2. Persist to Supabase Cloud directly using compatible payload
   const client = getSupabaseClient();
   if (client) {
     try {
-      // 1. Try full payload with top-level product_items
-      const { data, error } = await client
-        .from('submissions')
-        .insert([newSubmission])
-        .select();
-
+      const { product_items, ...compatPayload } = newSubmission;
+      const { error } = await client.from('submissions').insert([compatPayload]);
       if (error) {
-        console.warn('Supabase initial insert failed, checking column compatibility:', error.message);
-
-        // 2. If column product_items missing (PGRST204), retry payload without top-level product_items field
-        if (error.code === 'PGRST204' || error.message.includes('product_items')) {
-          const { product_items, ...compatPayload } = newSubmission;
-          const { data: compatData, error: compatErr } = await client
-            .from('submissions')
-            .insert([compatPayload])
-            .select();
-
-          if (compatErr) {
-            // Try simple insert without .select() in case RLS restricts select
-            const { error: simpleErr } = await client
-              .from('submissions')
-              .insert([compatPayload]);
-
-            if (simpleErr) {
-              console.error('Supabase fallback insert error:', simpleErr);
-            } else {
-              console.log('Successfully saved to Supabase (compat mode)');
-            }
-          } else if (compatData && compatData.length > 0) {
-            return {
-              ...(compatData[0] as VendorSubmission),
-              product_items: submissionData.product_items,
-            };
-          }
-        } else {
-          // Direct insert retry without select
-          const { error: plainErr } = await client
-            .from('submissions')
-            .insert([newSubmission]);
-
-          if (plainErr) {
-            console.error('Supabase direct insert error:', plainErr);
-          }
-        }
-      } else if (data && data.length > 0) {
-        return data[0] as VendorSubmission;
+        console.error('Supabase Cloud insert error:', error.message);
+      } else {
+        console.log('Successfully saved vendor submission to Supabase Cloud!');
       }
     } catch (cloudErr) {
-      console.error('Error persisting submission to Supabase cloud:', cloudErr);
+      console.error('Error persisting submission to Supabase Cloud:', cloudErr);
     }
   }
 
