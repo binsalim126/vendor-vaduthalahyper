@@ -3,10 +3,10 @@ import { FormQuestion, VendorSubmission } from './types';
 export const DEFAULT_QUESTIONS: FormQuestion[] = [
   {
     id: 'venture_name',
-    label: 'Venture Name',
+    label: 'Vendor Name',
     type: 'text',
     placeholder: 'e.g. Malabar Organic Harvests',
-    helper_text: 'The trade name or brand under which you market products',
+    helper_text: 'Vendor trade name or brand',
     required: true,
     is_default: true,
     order_index: 0,
@@ -14,10 +14,10 @@ export const DEFAULT_QUESTIONS: FormQuestion[] = [
   },
   {
     id: 'company_name',
-    label: 'Company Name',
+    label: 'Distribution',
     type: 'text',
-    placeholder: 'e.g. Malabar Agro & Dairy Private Limited',
-    helper_text: 'Registered legal entity name as per GST / Trade License',
+    placeholder: 'e.g. Malabar Agro & Distribution Pvt Ltd',
+    helper_text: 'Distribution network or registered company name',
     required: true,
     is_default: true,
     order_index: 1,
@@ -25,15 +25,16 @@ export const DEFAULT_QUESTIONS: FormQuestion[] = [
   },
   {
     id: 'phone',
-    label: 'Phone Number',
+    label: 'Phone',
     type: 'text',
     placeholder: '+91 98470 12345',
-    helper_text: 'Primary business contact for procurement & purchasing team',
+    helper_text: 'Direct contact number for Purchase Order approvals',
     required: true,
     is_default: true,
     order_index: 2,
     created_at: new Date().toISOString()
   },
+
   {
     id: 'products',
     label: 'Products Offered',

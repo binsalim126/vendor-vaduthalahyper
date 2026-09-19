@@ -631,9 +631,10 @@ END $$;
 -- 7. Insert Default Questions Seed
 INSERT INTO public.form_questions (id, label, type, placeholder, helper_text, required, is_default, order_index)
 VALUES 
-    ('venture_name', 'Venture Name', 'text', 'e.g. Malabar Organic Harvests', 'The trade name or brand under which you market products', true, true, 0),
-    ('company_name', 'Company Name', 'text', 'e.g. Malabar Agro & Dairy Private Limited', 'Registered legal entity name as per GST / Trade License', true, true, 1),
-    ('phone', 'Phone Number', 'text', '+91 98470 12345', 'Primary business contact for procurement & purchasing team', true, true, 2),
+    ('venture_name', 'Vendor Name', 'text', 'e.g. Malabar Organic Harvests', 'Vendor trade name or brand', true, true, 0),
+    ('company_name', 'Distribution', 'text', 'e.g. Malabar Agro & Distribution Pvt Ltd', 'Distribution network or registered company name', true, true, 1),
+    ('phone', 'Phone', 'text', '+91 98470 12345', 'Direct contact number for Purchase Order approvals', true, true, 2),
+
     ('products', 'Products Offered', 'multiselect', 'Type product category or name and press Enter', 'List your key items, brands, or product categories', true, true, 3)
 ON CONFLICT (id) DO NOTHING;
 `;

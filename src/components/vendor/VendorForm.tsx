@@ -71,12 +71,13 @@ export const VendorForm: React.FC<VendorFormProps> = ({
     const newErrors: Record<string, string> = {};
 
     if (!ventureName.trim()) {
-      newErrors.venture_name = 'Venture / Brand name is required';
+      newErrors.venture_name = 'Vendor Name is required';
     }
 
     if (!companyName.trim()) {
-      newErrors.company_name = 'Company registered legal name is required';
+      newErrors.company_name = 'Distribution name is required';
     }
+
 
     const cleanedPhone = phone.replace(/[\s()-]/g, '');
     if (!cleanedPhone) {
@@ -254,10 +255,10 @@ export const VendorForm: React.FC<VendorFormProps> = ({
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {/* Venture Name */}
+              {/* Vendor Name */}
               <div className="space-y-1.5">
                 <label className="block text-xs font-semibold text-slate-700">
-                  Venture / Brand Name <span className="text-red-500">*</span>
+                  Vendor Name <span className="text-red-500">*</span>
                 </label>
                 <div className="relative">
                   <input
@@ -276,17 +277,17 @@ export const VendorForm: React.FC<VendorFormProps> = ({
                   />
                 </div>
                 <p className="text-[11px] text-slate-400">
-                  Brand or trading name you market under
+                  Vendor trade name or brand
                 </p>
                 {errors.venture_name && (
                   <p className="text-xs text-red-600 font-medium">{errors.venture_name}</p>
                 )}
               </div>
 
-              {/* Company Name */}
+              {/* Distribution */}
               <div className="space-y-1.5">
                 <label className="block text-xs font-semibold text-slate-700">
-                  Registered Legal Company Name <span className="text-red-500">*</span>
+                  Distribution <span className="text-red-500">*</span>
                 </label>
                 <div className="relative">
                   <input
@@ -296,7 +297,7 @@ export const VendorForm: React.FC<VendorFormProps> = ({
                       setCompanyName(e.target.value);
                       if (errors.company_name) setErrors({ ...errors, company_name: '' });
                     }}
-                    placeholder="e.g. Malabar Agro & Dairy Pvt Ltd"
+                    placeholder="e.g. Malabar Agro & Distribution Pvt Ltd"
                     className={`w-full px-3.5 py-2.5 text-sm bg-white border rounded-xl text-slate-800 placeholder:text-slate-400 outline-none transition-all ${
                       errors.company_name
                         ? 'border-red-400 ring-2 ring-red-100 bg-red-50/20'
@@ -305,7 +306,7 @@ export const VendorForm: React.FC<VendorFormProps> = ({
                   />
                 </div>
                 <p className="text-[11px] text-slate-400">
-                  Legal entity name as registered for billing/GST
+                  Distribution network or registered company name
                 </p>
                 {errors.company_name && (
                   <p className="text-xs text-red-600 font-medium">{errors.company_name}</p>
@@ -313,10 +314,10 @@ export const VendorForm: React.FC<VendorFormProps> = ({
               </div>
             </div>
 
-            {/* Phone Number */}
+            {/* Phone */}
             <div className="space-y-1.5">
               <label className="block text-xs font-semibold text-slate-700">
-                Primary Phone / WhatsApp Number <span className="text-red-500">*</span>
+                Phone <span className="text-red-500">*</span>
               </label>
               <div className="relative flex items-center">
                 <div className="absolute left-3.5 text-slate-400 pointer-events-none">
@@ -338,12 +339,13 @@ export const VendorForm: React.FC<VendorFormProps> = ({
                 />
               </div>
               <p className="text-[11px] text-slate-400">
-                Direct mobile number for Purchase Order approvals and dispatch updates
+                Direct contact number for Purchase Order approvals and updates
               </p>
               {errors.phone && (
                 <p className="text-xs text-red-600 font-medium">{errors.phone}</p>
               )}
             </div>
+
           </section>
 
           {/* Section 2: Dynamic Custom Questions (Admin-created) */}
