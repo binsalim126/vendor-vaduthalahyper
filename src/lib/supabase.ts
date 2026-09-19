@@ -591,32 +591,44 @@ ALTER TABLE public.form_questions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.submissions ENABLE ROW LEVEL SECURITY;
 
 -- 4. Form Questions RLS Policies
--- Anyone (public) can read active form questions to fill the form
+-- Anyone (public/anon/authenticated) can read active form questions
+DROP POLICY IF EXISTS "Public form questions viewable by all" ON public.form_questions;
 CREATE POLICY "Public form questions viewable by all"
     ON public.form_questions FOR SELECT
     USING (true);
 
--- Only authenticated admins can insert/update/delete questions
+DROP POLICY IF EXISTS "Admins full access to form questions" ON public.form_questions;
 CREATE POLICY "Admins full access to form questions"
     ON public.form_questions FOR ALL
-    TO authenticated
     USING (true)
     WITH CHECK (true);
 
 -- 5. Submissions RLS Policies
--- Public vendors can ONLY insert submissions (no reading other vendors' data)
+-- Allow public insert, select, update, and delete on submissions
+DROP POLICY IF EXISTS "Public can insert vendor submissions" ON public.submissions;
 CREATE POLICY "Public can insert vendor submissions"
     ON public.submissions FOR INSERT
     WITH CHECK (true);
 
--- Authenticated admins can view, update, and manage all submissions
-CREATE POLICY "Admins full access to submissions"
+DROP POLICY IF EXISTS "Admins full access to submissions" ON public.submissions;
+DROP POLICY IF EXISTS "Public full access to submissions" ON public.submissions;
+CREATE POLICY "Public full access to submissions"
     ON public.submissions FOR ALL
-    TO authenticated
     USING (true)
     WITH CHECK (true);
 
--- 6. Insert Default Questions Seed
+-- 6. Enable Realtime Publications for instant cross-device updates
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime') THEN
+        ALTER PUBLICATION supabase_realtime ADD TABLE public.submissions;
+        ALTER PUBLICATION supabase_realtime ADD TABLE public.form_questions;
+    END IF;
+EXCEPTION
+    WHEN OTHERS THEN NULL;
+END $$;
+
+-- 7. Insert Default Questions Seed
 INSERT INTO public.form_questions (id, label, type, placeholder, helper_text, required, is_default, order_index)
 VALUES 
     ('venture_name', 'Venture Name', 'text', 'e.g. Malabar Organic Harvests', 'The trade name or brand under which you market products', true, true, 0),
@@ -625,3 +637,4 @@ VALUES
     ('products', 'Products Offered', 'multiselect', 'Type product category or name and press Enter', 'List your key items, brands, or product categories', true, true, 3)
 ON CONFLICT (id) DO NOTHING;
 `;
+
