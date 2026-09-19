@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
   CheckCircle2, 
   Copy, 
@@ -10,10 +10,9 @@ import {
   Package, 
   PhoneCall, 
   Building2, 
-  FileText,
-  Calendar,
-  Clock,
-  Store
+  Share2,
+  Download,
+  AlertCircle
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { VendorSubmission } from '../../lib/types';
@@ -28,6 +27,7 @@ export const SubmissionSuccess: React.FC<SubmissionSuccessProps> = ({
   onReset,
 }) => {
   const [copied, setCopied] = useState(false);
+  const [shareStatus, setShareStatus] = useState<string | null>(null);
 
   useEffect(() => {
     // Fire festive confetti animation
@@ -70,6 +70,136 @@ export const SubmissionSuccess: React.FC<SubmissionSuccessProps> = ({
   const hasDetailedItems = submission.product_items && submission.product_items.length > 0;
   const itemsCount = hasDetailedItems ? submission.product_items!.length : submission.products.length;
 
+  // Handle Share Slip (via Native Share API or Clipboard Fallback)
+  const handleShare = async () => {
+    const itemsText = hasDetailedItems
+      ? submission.product_items!.map((i, idx) => `${idx + 1}. ${i.name} - ${i.quantity} ${i.unit}`).join('\n')
+      : submission.products.join(', ');
+
+    const shareText = `📋 *Vaduthala Hyper Shopee - Vendor Registration Slip*\n` +
+      `---------------------------------------\n` +
+      `🆔 *Ref ID:* ${submission.id}\n` +
+      `👤 *Vendor Name:* ${submission.venture_name}\n` +
+      `🏢 *Distribution:* ${submission.company_name}\n` +
+      `📞 *Phone:* ${submission.phone}\n` +
+      `📦 *Products & Quantities:* \n${itemsText}\n` +
+      `---------------------------------------\n` +
+      `Status: VERIFIED & SUBMITTED ON CLOUD`;
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `Vendor Registration Slip - ${submission.id}`,
+          text: shareText,
+          url: window.location.href,
+        });
+        setShareStatus('Slip shared successfully!');
+        setTimeout(() => setShareStatus(null), 3000);
+      } catch (err) {
+        console.warn('Share error or canceled:', err);
+      }
+    } else {
+      // Copy formatted text to clipboard
+      try {
+        await navigator.clipboard.writeText(shareText);
+        setShareStatus('Slip details copied to clipboard! Share on WhatsApp or Email.');
+        setTimeout(() => setShareStatus(null), 4000);
+      } catch (e) {
+        alert('Could not copy slip details.');
+      }
+    }
+  };
+
+  // Handle Download Slip as a clean standalone HTML document
+  const handleDownloadSlip = () => {
+    const itemsRows = hasDetailedItems
+      ? submission.product_items!
+          .map(
+            (i, idx) =>
+              `<tr><td style="padding:6px;border:1px solid #cbd5e1;text-align:center;">${idx + 1}</td><td style="padding:6px;border:1px solid #cbd5e1;font-weight:bold;">${i.name}</td><td style="padding:6px;border:1px solid #cbd5e1;text-align:right;font-family:monospace;color:#047857;font-weight:bold;">${i.quantity}</td><td style="padding:6px;border:1px solid #cbd5e1;">${i.unit}</td></tr>`
+          )
+          .join('')
+      : submission.products
+          .map((p, idx) => `<tr><td style="padding:6px;border:1px solid #cbd5e1;text-align:center;">${idx + 1}</td><td style="padding:6px;border:1px solid #cbd5e1;" colspan="3">${p}</td></tr>`)
+          .join('');
+
+    const slipHtml = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Vendor Registration Slip - ${submission.id}</title>
+  <style>
+    body { font-family: system-ui, -apple-system, sans-serif; padding: 30px; color: #0f172a; max-width: 650px; margin: 0 auto; line-height: 1.5; }
+    .header { border-bottom: 2px solid #0f172a; padding-bottom: 14px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
+    .title { font-size: 20px; font-weight: 800; text-transform: uppercase; color: #0f172a; }
+    .sub { font-size: 12px; color: #059669; font-weight: 600; }
+    .ref { font-family: monospace; font-size: 16px; font-weight: 800; color: #047857; text-align: right; }
+    .info { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-size: 12px; background: #f8fafc; padding: 14px; border-radius: 12px; border: 1px solid #e2e8f0; margin-bottom: 20px; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 10px; }
+    th { background: #f1f5f9; padding: 8px; border: 1px solid #cbd5e1; text-align: left; font-size: 11px; text-transform: uppercase; }
+    .footer { margin-top: 30px; border-top: 1px solid #e2e8f0; padding-top: 14px; font-size: 11px; color: #64748b; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div>
+      <div class="title">Vaduthala Hyper Shopee</div>
+      <div class="sub">Official Supplier Onboarding Confirmation Slip</div>
+    </div>
+    <div class="ref">
+      <div style="font-size: 10px; color: #94a3b8; text-transform: uppercase;">Ref ID</div>
+      ${submission.id}
+    </div>
+  </div>
+
+  <div class="info">
+    <div>
+      <strong style="color:#64748b; font-size:10px; text-transform:uppercase;">Vendor Name</strong><br>
+      <span style="font-size:14px; font-weight:bold;">${submission.venture_name}</span><br>
+      <span style="color:#475569;">Distribution: ${submission.company_name}</span>
+    </div>
+    <div>
+      <strong style="color:#64748b; font-size:10px; text-transform:uppercase;">Contact & Date</strong><br>
+      <span style="font-family:monospace; font-weight:bold;">Phone: ${submission.phone}</span><br>
+      <span style="color:#64748b;">${formattedDate} • ${formattedTime}</span>
+    </div>
+  </div>
+
+  <div style="font-size: 12px; font-weight: bold; margin-bottom: 6px; text-transform: uppercase; color: #334155;">
+    Registered Product Catalogue Lines (${itemsCount})
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th style="width:30px;text-align:center;">#</th>
+        <th>Product / Item Description</th>
+        <th style="width:80px;text-align:right;">Quantity</th>
+        <th style="width:60px;">Unit</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${itemsRows}
+    </tbody>
+  </table>
+
+  <div class="footer">
+    Verified & recorded by Vaduthala Hyper Shopee Procurement Desk.<br>
+    <strong>Status: VERIFIED & SUBMITTED ON CLOUD DATABASE</strong>
+  </div>
+</body>
+</html>`;
+
+    const blob = new Blob([slipHtml], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Vendor_Registration_Slip_${submission.id}.html`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
       <motion.div
@@ -95,7 +225,7 @@ export const SubmissionSuccess: React.FC<SubmissionSuccessProps> = ({
             Application & Products Submitted!
           </h2>
           <p className="text-emerald-100 text-sm font-normal max-w-md mx-auto">
-            Your vendor registration and product supply details have been securely recorded. Print or save your confirmation slip below.
+            Your vendor registration and product supply details have been securely recorded. Download, share, or print your confirmation slip below.
           </p>
         </div>
 
@@ -158,12 +288,27 @@ export const SubmissionSuccess: React.FC<SubmissionSuccessProps> = ({
             </button>
           </div>
 
+          {/* Share Status Toast */}
+          <AnimatePresence>
+            {shareStatus && (
+              <motion.div
+                initial={{ opacity: 0, y: -6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold flex items-center gap-2"
+              >
+                <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>{shareStatus}</span>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
           {/* Submission Info Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs sm:text-sm">
             <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-100 flex items-start gap-3">
               <Building2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
               <div>
-                <p className="text-[11px] text-slate-400 font-semibold uppercase">Venture / Legal Entity</p>
+                <p className="text-[11px] text-slate-400 font-semibold uppercase">Vendor Name & Distribution</p>
                 <p className="font-bold text-slate-900 text-sm">{submission.venture_name}</p>
                 <p className="text-xs text-slate-600">{submission.company_name}</p>
               </div>
@@ -202,7 +347,6 @@ export const SubmissionSuccess: React.FC<SubmissionSuccessProps> = ({
                       <th className="py-2.5 px-3">Product / Item Description</th>
                       <th className="py-2.5 px-3 text-right">Quantity</th>
                       <th className="py-2.5 px-3">Unit</th>
-                      <th className="py-2.5 px-3">Specifications / Remarks</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 font-medium text-slate-800">
@@ -219,9 +363,6 @@ export const SubmissionSuccess: React.FC<SubmissionSuccessProps> = ({
                         </td>
                         <td className="py-2.5 px-3 font-medium text-slate-600">
                           {item.unit}
-                        </td>
-                        <td className="py-2.5 px-3 text-[11px] text-slate-500">
-                          {item.notes || '-'}
                         </td>
                       </tr>
                     ))}
@@ -247,7 +388,7 @@ export const SubmissionSuccess: React.FC<SubmissionSuccessProps> = ({
           {submission.custom_answers && Object.keys(submission.custom_answers).length > 0 && (
             <div className="space-y-2 pt-1 border-t border-slate-100">
               <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
-                Additional Details:
+                Additional Operational Details:
               </span>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
                 {Object.entries(submission.custom_answers).map(([key, val]) => {
@@ -288,24 +429,49 @@ export const SubmissionSuccess: React.FC<SubmissionSuccessProps> = ({
           </div>
 
           {/* Action Buttons (Hidden when printing) */}
-          <div className="flex flex-col sm:flex-row gap-3 pt-2 no-print">
-            <button
-              type="button"
-              onClick={handlePrint}
-              className="flex-1 py-3.5 px-4 bg-slate-800 hover:bg-slate-900 text-white font-bold text-sm rounded-2xl flex items-center justify-center gap-2 transition-all shadow-md active:scale-98"
-            >
-              <Printer className="w-4 h-4" />
-              <span>Print Confirmation Slip</span>
-            </button>
+          <div className="space-y-3 pt-2 no-print">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Share Slip Button */}
+              <button
+                type="button"
+                onClick={handleShare}
+                className="py-3 px-4 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-bold text-xs sm:text-sm rounded-2xl flex items-center justify-center gap-2 transition-all shadow-md shadow-emerald-700/20 active:scale-[0.98]"
+              >
+                <Share2 className="w-4 h-4" />
+                <span>Share Slip</span>
+              </button>
 
+              {/* Download Slip Button */}
+              <button
+                type="button"
+                onClick={handleDownloadSlip}
+                className="py-3 px-4 bg-slate-900 hover:bg-slate-800 active:bg-slate-950 text-white font-bold text-xs sm:text-sm rounded-2xl flex items-center justify-center gap-2 transition-all shadow-md active:scale-[0.98]"
+              >
+                <Download className="w-4 h-4 text-emerald-400" />
+                <span>Download Slip</span>
+              </button>
+            </div>
+
+            {/* Submit Another Application Button */}
             <button
               type="button"
               onClick={onReset}
-              className="flex-1 py-3.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm rounded-2xl flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-emerald-600/20 active:scale-[0.98]"
+              className="w-full py-3.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs sm:text-sm rounded-2xl border border-slate-200 flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
             >
-              <PlusCircle className="w-4 h-4" />
+              <PlusCircle className="w-4 h-4 text-emerald-600" />
               <span>Submit Another Application</span>
             </button>
+
+            {/* Optional Print Link */}
+            <div className="text-center pt-1">
+              <button
+                type="button"
+                onClick={handlePrint}
+                className="text-[11px] font-semibold text-slate-400 hover:text-slate-600 underline underline-offset-2 transition-colors"
+              >
+                Print physical paper copy
+              </button>
+            </div>
           </div>
         </div>
       </motion.div>
