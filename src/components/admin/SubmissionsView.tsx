@@ -154,8 +154,14 @@ export const SubmissionsView: React.FC<SubmissionsViewProps> = ({
         const matchesPhone = sub.phone.toLowerCase().includes(q);
         const matchesId = sub.id.toLowerCase().includes(q);
         const matchesProducts = Array.isArray(sub.products) && sub.products.some((p) => p.toLowerCase().includes(q));
+        const matchesProductItems = Array.isArray(sub.product_items) && sub.product_items.some((item) => 
+          (item.name || '').toLowerCase().includes(q) ||
+          String(item.quantity || '').toLowerCase().includes(q) ||
+          (item.unit || '').toLowerCase().includes(q) ||
+          (item.notes || '').toLowerCase().includes(q)
+        );
 
-        if (!matchesVenture && !matchesCompany && !matchesPhone && !matchesId && !matchesProducts) {
+        if (!matchesVenture && !matchesCompany && !matchesPhone && !matchesId && !matchesProducts && !matchesProductItems) {
           return false;
         }
       }
@@ -615,18 +621,46 @@ export const SubmissionsView: React.FC<SubmissionsViewProps> = ({
                             {/* Products Section */}
                             <div>
                               <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">
-                                Registered Products / Categories:
+                                Registered Products & Quantities ({sub.product_items && sub.product_items.length > 0 ? sub.product_items.length : sub.products.length}):
                               </span>
-                              <div className="flex flex-wrap gap-1.5">
-                                {sub.products.map((p, pIdx) => (
-                                  <span
-                                    key={pIdx}
-                                    className="px-2.5 py-1 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-700 shadow-2xs"
-                                  >
-                                    {p}
-                                  </span>
-                                ))}
-                              </div>
+
+                              {sub.product_items && sub.product_items.length > 0 ? (
+                                <div className="overflow-x-auto border border-slate-200 rounded-xl bg-white shadow-2xs">
+                                  <table className="w-full text-left text-xs">
+                                    <thead>
+                                      <tr className="bg-slate-100 text-slate-700 font-bold border-b border-slate-200">
+                                        <th className="py-2 px-3 w-8 text-center">#</th>
+                                        <th className="py-2 px-3">Product Name / Item</th>
+                                        <th className="py-2 px-3 text-right">Quantity</th>
+                                        <th className="py-2 px-3">Unit</th>
+                                        <th className="py-2 px-3">Packaging / Notes</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100 text-slate-800">
+                                      {sub.product_items.map((item, idx) => (
+                                        <tr key={idx} className="hover:bg-slate-50/50">
+                                          <td className="py-2 px-3 text-center text-slate-400 font-bold">{idx + 1}</td>
+                                          <td className="py-2 px-3 font-semibold text-slate-900">{item.name}</td>
+                                          <td className="py-2 px-3 text-right font-mono font-bold text-emerald-700">{item.quantity}</td>
+                                          <td className="py-2 px-3 text-slate-600 font-medium">{item.unit}</td>
+                                          <td className="py-2 px-3 text-[11px] text-slate-500">{item.notes || '-'}</td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              ) : (
+                                <div className="flex flex-wrap gap-1.5">
+                                  {sub.products.map((p, pIdx) => (
+                                    <span
+                                      key={pIdx}
+                                      className="px-2.5 py-1 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-700 shadow-2xs"
+                                    >
+                                      {p}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
                             </div>
 
                             {/* Custom Answers Grid */}

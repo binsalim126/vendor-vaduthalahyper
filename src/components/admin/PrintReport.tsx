@@ -118,7 +118,17 @@ export const PrintReport: React.FC<PrintReportProps> = ({
                       {sub.phone}
                     </td>
                     <td className="p-2 border-r border-slate-200">
-                      {Array.isArray(sub.products) ? (
+                      {sub.product_items && sub.product_items.length > 0 ? (
+                        <div className="space-y-1">
+                          {sub.product_items.map((item, pIdx) => (
+                            <div key={pIdx} className="text-[10.5px] leading-tight border-b border-slate-100 last:border-0 pb-0.5">
+                              <span className="font-semibold text-slate-900">{item.name}</span>
+                              <span className="font-mono font-bold text-emerald-800 ml-1">({item.quantity} {item.unit})</span>
+                              {item.notes && <span className="text-[9.5px] text-slate-400 block italic">{item.notes}</span>}
+                            </div>
+                          ))}
+                        </div>
+                      ) : Array.isArray(sub.products) ? (
                         <div className="flex flex-wrap gap-1">
                           {sub.products.map((p, pIdx) => (
                             <span

@@ -522,7 +522,7 @@ export async function authenticateAdmin(
 
   return {
     user: null,
-    error: 'Invalid email or password. Use demo credentials (admin@vaduthala.com / admin123) or configure Supabase.',
+    error: 'Invalid email or password. Please verify your credentials.',
   };
 }
 
@@ -576,11 +576,15 @@ CREATE TABLE IF NOT EXISTS public.submissions (
     company_name TEXT NOT NULL,
     phone TEXT NOT NULL,
     products JSONB NOT NULL DEFAULT '[]'::jsonb,
+    product_items JSONB DEFAULT '[]'::jsonb,
     custom_answers JSONB DEFAULT '{}'::jsonb,
     status TEXT DEFAULT 'new',
     notes TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Migration check: ensure product_items column exists if table already created
+ALTER TABLE public.submissions ADD COLUMN IF NOT EXISTS product_items JSONB DEFAULT '[]'::jsonb;
 
 -- 3. Enable Row Level Security (RLS)
 ALTER TABLE public.form_questions ENABLE ROW LEVEL SECURITY;

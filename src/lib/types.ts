@@ -15,12 +15,21 @@ export interface FormQuestion {
 
 export type SubmissionStatus = 'new' | 'in_review' | 'contacted' | 'approved' | 'rejected';
 
+export interface ProductItem {
+  id?: string;
+  name: string;
+  quantity: string | number;
+  unit: string;
+  notes?: string;
+}
+
 export interface VendorSubmission {
   id: string;
   venture_name: string;
   company_name: string;
   phone: string;
   products: string[];
+  product_items?: ProductItem[];
   custom_answers: Record<string, any>;
   status: SubmissionStatus;
   notes?: string;

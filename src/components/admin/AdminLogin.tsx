@@ -42,12 +42,6 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({
     }
   };
 
-  const handleFillDemo = () => {
-    setEmail('admin@vaduthala.com');
-    setPassword('admin123');
-    setErrorMsg('');
-  };
-
   return (
     <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4 relative overflow-hidden">
       {/* Background ambient lighting */}
@@ -110,7 +104,8 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({
                 <Mail className="w-4 h-4" />
               </div>
               <input
-                type="text"
+                type="email"
+                required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="admin@vaduthala.com"
@@ -129,6 +124,7 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({
               </div>
               <input
                 type="password"
+                required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
@@ -137,36 +133,26 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({
             </div>
           </div>
 
-          {/* Quick Demo Helper Button */}
-          <div className="pt-1">
+          {/* Submit button */}
+          <div className="pt-2">
             <button
-              type="button"
-              onClick={handleFillDemo}
-              className="w-full py-2 px-3 bg-slate-700/50 hover:bg-slate-700 text-slate-300 text-xs font-medium rounded-xl border border-slate-600/50 flex items-center justify-center gap-1.5 transition-colors"
+              type="submit"
+              disabled={isLoading}
+              className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-semibold text-sm rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-emerald-900/30 disabled:opacity-60 active:scale-[0.99]"
             >
-              <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Use One-Click Demo Credentials (admin@vaduthala.com)</span>
+              {isLoading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Authenticating...</span>
+                </>
+              ) : (
+                <>
+                  <Lock className="w-4 h-4" />
+                  <span>Sign In to Dashboard</span>
+                </>
+              )}
             </button>
           </div>
-
-          {/* Submit button */}
-          <button
-            type="submit"
-            disabled={isLoading}
-            className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-semibold text-sm rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-emerald-900/30 disabled:opacity-60 active:scale-[0.99]"
-          >
-            {isLoading ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                <span>Authenticating...</span>
-              </>
-            ) : (
-              <>
-                <Lock className="w-4 h-4" />
-                <span>Sign In to Dashboard</span>
-              </>
-            )}
-          </button>
         </form>
 
         {/* Security Footer */}

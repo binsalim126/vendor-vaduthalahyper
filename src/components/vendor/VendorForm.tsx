@@ -4,18 +4,19 @@ import {
   Building2, 
   Store, 
   Phone, 
-  Send, 
-  Loader2, 
+  ArrowRight,
   HelpCircle, 
   CheckSquare, 
-  Sparkles,
-  Info,
-  ShieldCheck,
-  Lock
+  Sparkles, 
+  Info, 
+  ShieldCheck, 
+  Lock,
+  Layers
 } from 'lucide-react';
-import { FormQuestion, VendorSubmission } from '../../lib/types';
+import { FormQuestion, ProductItem, VendorSubmission } from '../../lib/types';
 import { ProductTagInput } from './ProductTagInput';
 import { createVendorSubmission } from '../../lib/supabase';
+import { ProductQuantityForm } from './ProductQuantityForm';
 import { SubmissionSuccess } from './SubmissionSuccess';
 
 interface VendorFormProps {
@@ -29,7 +30,10 @@ export const VendorForm: React.FC<VendorFormProps> = ({
   onSubmissionSuccess,
   onOpenAdminLogin,
 }) => {
-  // Form State
+  // Wizard Step State: 1 = Identity & Products, 2 = Quantities & Specs
+  const [step, setStep] = useState<1 | 2>(1);
+
+  // Form Data State
   const [ventureName, setVentureName] = useState('');
   const [companyName, setCompanyName] = useState('');
   const [phone, setPhone] = useState('');
@@ -62,16 +66,16 @@ export const VendorForm: React.FC<VendorFormProps> = ({
     }
   };
 
-  // Form Validation
-  const validateForm = (): boolean => {
+  // Step 1 Validation
+  const validateStep1 = (): boolean => {
     const newErrors: Record<string, string> = {};
 
     if (!ventureName.trim()) {
-      newErrors.venture_name = 'Venture name is required';
+      newErrors.venture_name = 'Venture / Brand name is required';
     }
 
     if (!companyName.trim()) {
-      newErrors.company_name = 'Company legal name is required';
+      newErrors.company_name = 'Company registered legal name is required';
     }
 
     const cleanedPhone = phone.replace(/[\s()-]/g, '');
@@ -104,22 +108,31 @@ export const VendorForm: React.FC<VendorFormProps> = ({
     return Object.keys(newErrors).length === 0;
   };
 
-  // Submission Handler
-  const handleSubmit = async (e: React.FormEvent) => {
+  // Step 1 Form Handler -> advance to Step 2
+  const handleProceedToStep2 = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!validateForm()) {
-      // Scroll to first error
+    if (!validateStep1()) {
       window.scrollTo({ top: 120, behavior: 'smooth' });
       return;
     }
+    setStep(2);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
+  // Step 2 Submission Handler -> Save to Supabase & Generate Slip
+  const handleFinalSubmit = async (productItems: ProductItem[]) => {
     setIsSubmitting(true);
     try {
+      // Gather all distinct product names from items and tags
+      const itemNames = productItems.map((item) => item.name.trim()).filter(Boolean);
+      const combinedProductTags = Array.from(new Set([...products, ...itemNames]));
+
       const submission = await createVendorSubmission({
         venture_name: ventureName.trim(),
         company_name: companyName.trim(),
         phone: phone.trim(),
-        products: products,
+        products: combinedProductTags,
+        product_items: productItems,
         custom_answers: customAnswers,
       });
 
@@ -142,14 +155,35 @@ export const VendorForm: React.FC<VendorFormProps> = ({
     setProducts([]);
     setCustomAnswers({});
     setErrors({});
+    setStep(1);
     setSubmittedData(null);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  // Final Slip View
   if (submittedData) {
     return <SubmissionSuccess submission={submittedData} onReset={handleResetForm} />;
   }
 
+  // Step 2: Product & Quantity Entry Form
+  if (step === 2) {
+    return (
+      <ProductQuantityForm
+        ventureName={ventureName}
+        companyName={companyName}
+        phone={phone}
+        initialProducts={products}
+        isSubmitting={isSubmitting}
+        onBack={() => {
+          setStep(1);
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+        onSubmit={handleFinalSubmit}
+      />
+    );
+  }
+
+  // Step 1: Initial Business Identity & Product Tag Selection
   return (
     <div className="min-h-screen bg-slate-50/60 pb-16">
       {/* Top Brand Banner */}
@@ -192,10 +226,16 @@ export const VendorForm: React.FC<VendorFormProps> = ({
         <div className="mb-6 bg-gradient-to-r from-emerald-800 via-emerald-700 to-emerald-900 text-white rounded-2xl p-6 shadow-md relative overflow-hidden">
           <div className="absolute -right-6 -bottom-6 w-36 h-36 bg-white/10 rounded-full blur-xl pointer-events-none" />
           <div className="relative z-10 space-y-1.5">
-            <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-emerald-500/30 text-emerald-100 text-xs font-medium border border-emerald-400/20">
-              <Sparkles className="w-3 h-3 text-emerald-300" />
-              <span>Official Registration</span>
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-emerald-500/30 text-emerald-100 text-xs font-medium border border-emerald-400/20">
+                <Sparkles className="w-3 h-3 text-emerald-300" />
+                <span>Official Supplier Registration</span>
+              </div>
+              <span className="text-xs font-mono font-semibold text-emerald-200">
+                Step 1 of 2: Vendor Profile
+              </span>
             </div>
+
             <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight">
               Supplier & Vendor Registration Form
             </h1>
@@ -206,7 +246,7 @@ export const VendorForm: React.FC<VendorFormProps> = ({
         </div>
 
         {/* The Registration Form */}
-        <form onSubmit={handleSubmit} noValidate className="space-y-6">
+        <form onSubmit={handleProceedToStep2} noValidate className="space-y-6">
           {/* Section 1: Business Identity */}
           <section className="bg-white rounded-2xl p-5 sm:p-6 border border-slate-200/80 shadow-xs space-y-5">
             <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
@@ -314,7 +354,7 @@ export const VendorForm: React.FC<VendorFormProps> = ({
             <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
               <Building2 className="w-4 h-4 text-emerald-600" />
               <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wider">
-                2. Products & Catalogue <span className="text-red-500">*</span>
+                2. Products & Catalogue Lines <span className="text-red-500">*</span>
               </h2>
             </div>
 
@@ -327,6 +367,9 @@ export const VendorForm: React.FC<VendorFormProps> = ({
                 }}
                 error={errors.products}
               />
+              <p className="text-[11px] text-slate-400">
+                You will enter exact quantities & packaging details for each item in the next step.
+              </p>
             </div>
           </section>
 
@@ -503,24 +546,14 @@ export const VendorForm: React.FC<VendorFormProps> = ({
             </section>
           )}
 
-          {/* Bottom Submission Bar */}
+          {/* Bottom Proceed Bar */}
           <div className="pt-2">
             <button
               type="submit"
-              disabled={isSubmitting}
-              className="w-full py-3.5 px-6 rounded-2xl bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-bold text-sm tracking-wide shadow-lg shadow-emerald-700/20 flex items-center justify-center gap-2 transition-all disabled:opacity-70 disabled:cursor-not-allowed transform active:scale-[0.99]"
+              className="w-full py-3.5 px-6 rounded-2xl bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-bold text-sm tracking-wide shadow-lg shadow-emerald-700/20 flex items-center justify-center gap-2 transition-all transform active:scale-[0.99]"
             >
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  <span>Submitting Registration...</span>
-                </>
-              ) : (
-                <>
-                  <Send className="w-4 h-4" />
-                  <span>Submit Vendor Application</span>
-                </>
-              )}
+              <span>Continue to Product & Quantity Details</span>
+              <ArrowRight className="w-4 h-4" />
             </button>
             <div className="mt-3 text-center text-xs text-slate-400 flex items-center justify-center gap-1.5">
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />

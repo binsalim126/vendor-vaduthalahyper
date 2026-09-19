@@ -24,6 +24,11 @@ export function exportSubmissionsToExcel(submissions: VendorSubmission[], questi
       hour12: true
     });
 
+    // Format itemized products with quantities
+    const productItemsFormatted = sub.product_items && sub.product_items.length > 0
+      ? sub.product_items.map((i) => `${i.name} (${i.quantity} ${i.unit}${i.notes ? ` - ${i.notes}` : ''})`).join('; ')
+      : (Array.isArray(sub.products) ? sub.products.join(', ') : sub.products);
+
     const rowData: Record<string, any> = {
       'Sl. No.': idx + 1,
       'Submission ID': sub.id,
@@ -32,7 +37,8 @@ export function exportSubmissionsToExcel(submissions: VendorSubmission[], questi
       'Venture Name': sub.venture_name,
       'Company Name': sub.company_name,
       'Phone Number': sub.phone,
-      'Products Offered': Array.isArray(sub.products) ? sub.products.join(', ') : sub.products,
+      'Products & Quantities': productItemsFormatted,
+      'Product Categories': Array.isArray(sub.products) ? sub.products.join(', ') : sub.products,
       'Status': (sub.status || 'new').toUpperCase(),
       'Admin Notes': sub.notes || ''
     };

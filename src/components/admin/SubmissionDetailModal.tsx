@@ -207,24 +207,54 @@ export const SubmissionDetailModal: React.FC<SubmissionDetailModalProps> = ({
               </div>
             </div>
 
-            {/* Products Offered */}
+            {/* Products & Quantities Section */}
             <div className="p-4 rounded-2xl bg-white border border-slate-200 space-y-2.5">
-              <div className="flex items-center gap-2">
-                <ShoppingBag className="w-4 h-4 text-emerald-600" />
-                <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-                  Products Offered ({submission.products.length})
-                </span>
-              </div>
-              <div className="flex flex-wrap gap-2 pt-1">
-                {submission.products.map((p, idx) => (
-                  <span
-                    key={idx}
-                    className="px-3 py-1 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-lg text-xs font-semibold"
-                  >
-                    {p}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <ShoppingBag className="w-4 h-4 text-emerald-600" />
+                  <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                    Products & Quantities ({submission.product_items && submission.product_items.length > 0 ? submission.product_items.length : submission.products.length})
                   </span>
-                ))}
+                </div>
               </div>
+
+              {submission.product_items && submission.product_items.length > 0 ? (
+                <div className="overflow-x-auto border border-slate-200 rounded-xl">
+                  <table className="w-full text-left text-xs">
+                    <thead>
+                      <tr className="bg-slate-100 text-slate-700 font-bold border-b border-slate-200">
+                        <th className="py-2 px-3 w-8 text-center">#</th>
+                        <th className="py-2 px-3">Product Name / Item</th>
+                        <th className="py-2 px-3 text-right">Quantity</th>
+                        <th className="py-2 px-3">Unit</th>
+                        <th className="py-2 px-3">Packaging / Notes</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 text-slate-800 font-medium">
+                      {submission.product_items.map((item, idx) => (
+                        <tr key={idx} className="hover:bg-slate-50/50">
+                          <td className="py-2 px-3 text-center text-slate-400 font-bold">{idx + 1}</td>
+                          <td className="py-2 px-3 font-semibold text-slate-900">{item.name}</td>
+                          <td className="py-2 px-3 text-right font-mono font-bold text-emerald-700">{item.quantity}</td>
+                          <td className="py-2 px-3 text-slate-600 font-medium">{item.unit}</td>
+                          <td className="py-2 px-3 text-[11px] text-slate-500">{item.notes || '-'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {submission.products.map((p, idx) => (
+                    <span
+                      key={idx}
+                      className="px-3 py-1 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-lg text-xs font-semibold"
+                    >
+                      {p}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Dynamic Custom Questions & Answers */}
