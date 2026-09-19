@@ -17,8 +17,10 @@ import {
   Smartphone,
   Eye,
   ArrowUpDown,
-  AlertCircle
+  AlertCircle,
+  Edit3
 } from 'lucide-react';
+
 import { FormQuestion, QuestionType } from '../../lib/types';
 import { saveFormQuestion, deleteFormQuestion } from '../../lib/supabase';
 
@@ -44,7 +46,8 @@ export const FormBuilder: React.FC<FormBuilderProps> = ({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [previewMode, setPreviewMode] = useState(false);
 
-  // New Question Form State
+  // Question Form State (Add / Edit)
+  const [editingQuestionId, setEditingQuestionId] = useState<string | null>(null);
   const [label, setLabel] = useState('');
   const [type, setType] = useState<QuestionType>('text');
   const [placeholder, setPlaceholder] = useState('');
@@ -59,12 +62,26 @@ export const FormBuilder: React.FC<FormBuilderProps> = ({
   const sortedQuestions = [...questions].sort((a, b) => a.order_index - b.order_index);
 
   const handleOpenAddModal = () => {
+    setEditingQuestionId(null);
     setLabel('');
     setType('text');
     setPlaceholder('');
     setHelperText('');
     setRequired(false);
     setOptions(['Option 1', 'Option 2']);
+    setNewOptionInput('');
+    setErrorMsg('');
+    setIsModalOpen(true);
+  };
+
+  const handleOpenEditModal = (q: FormQuestion) => {
+    setEditingQuestionId(q.id);
+    setLabel(q.label || '');
+    setType(q.type || 'text');
+    setPlaceholder(q.placeholder || '');
+    setHelperText(q.helper_text || '');
+    setRequired(Boolean(q.required));
+    setOptions(q.options && q.options.length > 0 ? [...q.options] : ['Option 1', 'Option 2']);
     setNewOptionInput('');
     setErrorMsg('');
     setIsModalOpen(true);
@@ -99,22 +116,43 @@ export const FormBuilder: React.FC<FormBuilderProps> = ({
 
     setIsSubmitting(true);
     try {
-      const newQuestionId = `cust_${Date.now()}`;
-      const newQuestion: FormQuestion = {
-        id: newQuestionId,
-        label: label.trim(),
-        type,
-        placeholder: placeholder.trim() || undefined,
-        helper_text: helperText.trim() || undefined,
-        required,
-        is_default: false,
-        options: type === 'select' || type === 'multiselect' ? options : undefined,
-        order_index: questions.length,
-        created_at: new Date().toISOString(),
-      };
+      if (editingQuestionId) {
+        // Editing existing question
+        const existingQ = questions.find((item) => item.id === editingQuestionId);
+        const updatedQuestion: FormQuestion = {
+          id: editingQuestionId,
+          label: label.trim(),
+          type,
+          placeholder: placeholder.trim() || undefined,
+          helper_text: helperText.trim() || undefined,
+          required,
+          is_default: existingQ ? existingQ.is_default : false,
+          options: type === 'select' || type === 'multiselect' ? options : undefined,
+          order_index: existingQ ? existingQ.order_index : questions.length,
+          created_at: existingQ ? existingQ.created_at : new Date().toISOString(),
+        };
 
-      const saved = await saveFormQuestion(newQuestion);
-      onQuestionsChange([...questions, saved]);
+        const saved = await saveFormQuestion(updatedQuestion);
+        onQuestionsChange(questions.map((q) => (q.id === editingQuestionId ? saved : q)));
+      } else {
+        // Creating new question
+        const newQuestionId = `cust_${Date.now()}`;
+        const newQuestion: FormQuestion = {
+          id: newQuestionId,
+          label: label.trim(),
+          type,
+          placeholder: placeholder.trim() || undefined,
+          helper_text: helperText.trim() || undefined,
+          required,
+          is_default: false,
+          options: type === 'select' || type === 'multiselect' ? options : undefined,
+          order_index: questions.length,
+          created_at: new Date().toISOString(),
+        };
+
+        const saved = await saveFormQuestion(newQuestion);
+        onQuestionsChange([...questions, saved]);
+      }
       setIsModalOpen(false);
     } catch (err: any) {
       setErrorMsg(err.message || 'Error saving question.');
@@ -122,6 +160,7 @@ export const FormBuilder: React.FC<FormBuilderProps> = ({
       setIsSubmitting(false);
     }
   };
+
 
   const handleDeleteQuestion = async (questionId: string) => {
     const q = questions.find((item) => item.id === questionId);
@@ -289,13 +328,22 @@ export const FormBuilder: React.FC<FormBuilderProps> = ({
                         <div className="flex items-center gap-1.5 shrink-0">
                           <button
                             type="button"
+                            onClick={() => handleOpenEditModal(q)}
+                            className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+                            title="Edit question"
+                          >
+                            <Edit3 className="w-4 h-4" />
+                          </button>
+                          <button
+                            type="button"
                             onClick={() => handleDeleteQuestion(q.id)}
                             className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                            title="Delete custom question"
+                            title="Delete question"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
                         </div>
+
                       </div>
                     </motion.div>
                   ))}
@@ -419,12 +467,17 @@ export const FormBuilder: React.FC<FormBuilderProps> = ({
               <div className="bg-slate-900 text-white p-5 flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
                   <div className="p-2 bg-emerald-600 rounded-xl">
-                    <Plus className="w-4 h-4 text-white" />
+                    {editingQuestionId ? <Edit3 className="w-4 h-4 text-white" /> : <Plus className="w-4 h-4 text-white" />}
                   </div>
                   <div>
-                    <h2 className="text-base font-bold text-white">Add Custom Question</h2>
-                    <p className="text-xs text-slate-400">Configure new dynamic field for vendor form</p>
+                    <h2 className="text-base font-bold text-white">
+                      {editingQuestionId ? 'Edit Question' : 'Add Custom Question'}
+                    </h2>
+                    <p className="text-xs text-slate-400">
+                      {editingQuestionId ? 'Modify existing question parameters' : 'Configure new dynamic field for vendor form'}
+                    </p>
                   </div>
+
                 </div>
                 <button
                   type="button"
@@ -601,7 +654,7 @@ export const FormBuilder: React.FC<FormBuilderProps> = ({
                     disabled={isSubmitting}
                     className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-all shadow-md shadow-emerald-700/20 active:scale-95"
                   >
-                    {isSubmitting ? 'Saving...' : 'Add Question'}
+                    {isSubmitting ? 'Saving...' : editingQuestionId ? 'Save Changes' : 'Add Question'}
                   </button>
                 </div>
               </form>

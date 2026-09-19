@@ -85,10 +85,6 @@ export const VendorForm: React.FC<VendorFormProps> = ({
       newErrors.phone = 'Please enter a valid phone number';
     }
 
-    if (!products || products.length === 0) {
-      newErrors.products = 'Please add at least one product or category';
-    }
-
     // Validate required custom questions
     customQuestions.forEach((q) => {
       if (q.required) {
@@ -107,6 +103,7 @@ export const VendorForm: React.FC<VendorFormProps> = ({
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
+
 
   // Step 1 Form Handler -> advance to Step 2
   const handleProceedToStep2 = (e: React.FormEvent) => {
@@ -349,44 +346,21 @@ export const VendorForm: React.FC<VendorFormProps> = ({
             </div>
           </section>
 
-          {/* Section 2: Products Offered */}
-          <section className="bg-white rounded-2xl p-5 sm:p-6 border border-slate-200/80 shadow-xs space-y-4">
-            <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
-              <Building2 className="w-4 h-4 text-emerald-600" />
-              <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wider">
-                2. Products & Catalogue Lines <span className="text-red-500">*</span>
-              </h2>
-            </div>
-
-            <div className="space-y-1.5">
-              <ProductTagInput
-                value={products}
-                onChange={(tags) => {
-                  setProducts(tags);
-                  if (errors.products) setErrors({ ...errors, products: '' });
-                }}
-                error={errors.products}
-              />
-              <p className="text-[11px] text-slate-400">
-                You will enter exact quantities & packaging details for each item in the next step.
-              </p>
-            </div>
-          </section>
-
-          {/* Section 3: Dynamic Custom Questions (Admin-created) */}
+          {/* Section 2: Dynamic Custom Questions (Admin-created) */}
           {customQuestions.length > 0 && (
             <section className="bg-white rounded-2xl p-5 sm:p-6 border border-slate-200/80 shadow-xs space-y-5">
               <div className="flex items-center justify-between pb-2 border-b border-slate-100">
                 <div className="flex items-center gap-2">
                   <HelpCircle className="w-4 h-4 text-emerald-600" />
                   <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wider">
-                    3. Additional Operational Details
+                    2. Additional Operational Details
                   </h2>
                 </div>
                 <span className="text-[11px] font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100">
                   {customQuestions.length} Questions
                 </span>
               </div>
+
 
               <div className="space-y-5">
                 {customQuestions.map((q) => {
@@ -552,7 +526,7 @@ export const VendorForm: React.FC<VendorFormProps> = ({
               type="submit"
               className="w-full py-3.5 px-6 rounded-2xl bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-bold text-sm tracking-wide shadow-lg shadow-emerald-700/20 flex items-center justify-center gap-2 transition-all transform active:scale-[0.99]"
             >
-              <span>Continue to Product & Quantity Details</span>
+              <span>Continue to Product & Quantity Sheet</span>
               <ArrowRight className="w-4 h-4" />
             </button>
             <div className="mt-3 text-center text-xs text-slate-400 flex items-center justify-center gap-1.5">
