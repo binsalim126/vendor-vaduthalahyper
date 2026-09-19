@@ -69,10 +69,13 @@ try {
 }
 
 
+const DEFAULT_SUPABASE_URL = 'https://mdvpieficowbguqmmjch.supabase.co';
+const DEFAULT_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1kdnBpZWZpY293Ymd1cW1tamNoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk2Mjg1MDgsImV4cCI6MjEwNTIwNDUwOH0.N_21120F_HRxoCklMczNlqZ2WJZfl1XORc1004CG3t8';
+
 // Initial default configuration
 let supabaseConfig = {
-  url: import.meta.env.VITE_SUPABASE_URL || '',
-  anonKey: import.meta.env.VITE_SUPABASE_ANON_KEY || '',
+  url: import.meta.env.VITE_SUPABASE_URL || DEFAULT_SUPABASE_URL,
+  anonKey: import.meta.env.VITE_SUPABASE_ANON_KEY || DEFAULT_SUPABASE_ANON_KEY,
 };
 
 // Check local storage for custom credentials if any
