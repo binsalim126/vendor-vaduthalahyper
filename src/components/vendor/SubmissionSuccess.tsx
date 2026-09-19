@@ -12,7 +12,7 @@ import {
   Building2, 
   Share2,
   Download,
-  AlertCircle
+  Sparkles
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { VendorSubmission } from '../../lib/types';
@@ -208,8 +208,8 @@ export const SubmissionSuccess: React.FC<SubmissionSuccessProps> = ({
         transition={{ duration: 0.4, ease: 'easeOut' }}
         className="bg-white rounded-3xl shadow-xl shadow-slate-200/50 border border-slate-100 overflow-hidden printable-slip"
       >
-        {/* Top Celebration Banner (Screen only) */}
-        <div className="bg-gradient-to-br from-emerald-600 to-emerald-800 text-white p-8 text-center relative overflow-hidden no-print">
+        {/* Top Celebration Banner */}
+        <div className="bg-gradient-to-br from-emerald-600 to-emerald-800 text-white p-6 sm:p-8 text-center relative overflow-hidden no-print">
           <div className="absolute top-0 right-0 transform translate-x-8 -translate-y-8 w-48 h-48 bg-white/10 rounded-full blur-2xl pointer-events-none" />
           
           <motion.div
@@ -225,11 +225,50 @@ export const SubmissionSuccess: React.FC<SubmissionSuccessProps> = ({
             Application & Products Submitted!
           </h2>
           <p className="text-emerald-100 text-sm font-normal max-w-md mx-auto">
-            Your vendor registration and product supply details have been securely recorded. Download, share, or print your confirmation slip below.
+            Your vendor registration and product supply details have been securely recorded.
           </p>
         </div>
 
-        {/* Printable Official Header (Visible on print & in slip) */}
+        {/* Top Prominent Action Bar */}
+        <div className="bg-emerald-50/90 border-b border-emerald-100 p-4 sm:p-5 flex flex-col sm:flex-row items-center justify-between gap-3 no-print">
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-emerald-600 shrink-0" />
+            <span className="text-xs font-bold text-slate-800 uppercase tracking-wide">
+              Slip Quick Actions
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2.5 flex-wrap w-full sm:w-auto">
+            <button
+              type="button"
+              onClick={handleShare}
+              className="flex-1 sm:flex-none px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-md shadow-emerald-700/20 active:scale-95"
+            >
+              <Share2 className="w-4 h-4" />
+              <span>Share Slip</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleDownloadSlip}
+              className="flex-1 sm:flex-none px-4 py-2.5 bg-slate-900 hover:bg-slate-800 active:bg-slate-950 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-md active:scale-95"
+            >
+              <Download className="w-4 h-4 text-emerald-400" />
+              <span>Download Slip</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={onReset}
+              className="w-full sm:w-auto px-3.5 py-2.5 bg-white hover:bg-slate-100 text-slate-700 font-bold text-xs rounded-xl border border-slate-200 flex items-center justify-center gap-1.5 transition-colors shadow-2xs"
+            >
+              <PlusCircle className="w-3.5 h-3.5 text-emerald-600" />
+              <span>Submit Another Slip</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Printable Official Header */}
         <div className="p-6 sm:p-8 space-y-6">
           {/* Official Letterhead Header for Slip */}
           <div className="flex items-start justify-between border-b-2 border-slate-900 pb-4">
@@ -259,7 +298,7 @@ export const SubmissionSuccess: React.FC<SubmissionSuccessProps> = ({
             </div>
           </div>
 
-          {/* Reference Banner with 1-click copy (No-print buttons) */}
+          {/* Reference Banner with 1-click copy */}
           <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3 no-print">
             <div>
               <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider block">
@@ -428,7 +467,7 @@ export const SubmissionSuccess: React.FC<SubmissionSuccessProps> = ({
             </div>
           </div>
 
-          {/* Action Buttons (Hidden when printing) */}
+          {/* Bottom Action Buttons */}
           <div className="space-y-3 pt-2 no-print">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {/* Share Slip Button */}
