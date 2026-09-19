@@ -9,7 +9,6 @@ import {
   AlertCircle, 
   Building2, 
   Phone, 
-  Scale,
   FileSpreadsheet,
   Layers
 } from 'lucide-react';
@@ -25,23 +24,7 @@ interface ProductQuantityFormProps {
   onSubmit: (items: ProductItem[]) => void;
 }
 
-const COMMON_UNITS = [
-  'Kg',
-  'Pieces / Units',
-  'Boxes / Cartons',
-  'Packets (Pkt)',
-  'Litres (L)',
-  'Bags / Sacks',
-  'Gram (g)',
-  'Millilitres (ml)',
-  'Dozen',
-  'Tons / Quintal',
-  'Trays',
-  'Crates',
-  'Bottles / Jars',
-  'Bundles',
-  'Custom'
-];
+const COMMON_UNITS = ['Pcs', 'Kg'];
 
 export const ProductQuantityForm: React.FC<ProductQuantityFormProps> = ({
   ventureName,
@@ -52,14 +35,14 @@ export const ProductQuantityForm: React.FC<ProductQuantityFormProps> = ({
   onBack,
   onSubmit,
 }) => {
-  // Initialize items from initialProducts if provided, else generate 5 ready rows by default
+  // Initialize items from initialProducts if provided, else generate 5 ready rows with default unit 'Pcs'
   const [items, setItems] = useState<ProductItem[]>(() => {
     if (initialProducts && initialProducts.length > 0) {
       return initialProducts.map((p, idx) => ({
         id: `item_${Date.now()}_${idx}`,
         name: p,
         quantity: '',
-        unit: 'Kg',
+        unit: 'Pcs',
         notes: '',
       }));
     }
@@ -68,7 +51,7 @@ export const ProductQuantityForm: React.FC<ProductQuantityFormProps> = ({
       id: `item_${Date.now()}_${idx}`,
       name: '',
       quantity: '',
-      unit: 'Kg',
+      unit: 'Pcs',
       notes: '',
     }));
   });
@@ -82,7 +65,7 @@ export const ProductQuantityForm: React.FC<ProductQuantityFormProps> = ({
         id: `item_${Date.now()}_${prev.length + idx}`,
         name: '',
         quantity: '',
-        unit: 'Kg',
+        unit: 'Pcs',
         notes: '',
       })),
     ]);
@@ -136,7 +119,6 @@ export const ProductQuantityForm: React.FC<ProductQuantityFormProps> = ({
         }
       });
     }
-
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
@@ -202,7 +184,7 @@ export const ProductQuantityForm: React.FC<ProductQuantityFormProps> = ({
             </h1>
             
             <p className="text-xs sm:text-sm text-emerald-100/90 font-normal leading-relaxed max-w-2xl">
-              Fill in your products, estimated supply quantities, measurement units (Kg, Units, Boxes), and specifications directly into the sheet below.
+              Fill in your product names, quantities, and units (Pcs or Kg) directly into the sheet below.
             </p>
           </div>
         </div>
@@ -263,11 +245,10 @@ export const ProductQuantityForm: React.FC<ProductQuantityFormProps> = ({
                 <thead>
                   <tr className="bg-slate-100 text-slate-700 text-xs font-bold border-b border-slate-200">
                     <th className="py-3 px-3 w-16 text-center">Sl No.</th>
-                    <th className="py-3 px-4 min-w-[200px]">Product Name <span className="text-red-500">*</span></th>
-                    <th className="py-3 px-3 w-32">Qty <span className="text-red-500">*</span></th>
-                    <th className="py-3 px-3 w-40">Unit</th>
-                    <th className="py-3 px-4 min-w-[180px]">Notes / Specs (Optional)</th>
-                    <th className="py-3 px-3 w-12 text-center">Action</th>
+                    <th className="py-3 px-4 min-w-[260px]">Product Name <span className="text-red-500">*</span></th>
+                    <th className="py-3 px-3 w-36">Qty <span className="text-red-500">*</span></th>
+                    <th className="py-3 px-3 w-32">Unit</th>
+                    <th className="py-3 px-3 w-16 text-center">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200 text-xs">
@@ -288,7 +269,7 @@ export const ProductQuantityForm: React.FC<ProductQuantityFormProps> = ({
                             type="text"
                             value={item.name}
                             onChange={(e) => handleFieldChange(idx, 'name', e.target.value)}
-                            placeholder="e.g. Basmati Rice 5kg"
+                            placeholder="e.g. Basmati Rice"
                             className={`w-full px-3 py-2 text-xs bg-white border rounded-lg text-slate-800 placeholder:text-slate-400 outline-none transition-all ${
                               nameErr
                                 ? 'border-red-400 ring-1 ring-red-200 bg-red-50/20'
@@ -319,7 +300,7 @@ export const ProductQuantityForm: React.FC<ProductQuantityFormProps> = ({
                           <select
                             value={item.unit}
                             onChange={(e) => handleFieldChange(idx, 'unit', e.target.value)}
-                            className="w-full px-2.5 py-2 text-xs bg-white border border-slate-200 rounded-lg text-slate-800 outline-none focus:border-emerald-600 cursor-pointer"
+                            className="w-full px-2.5 py-2 text-xs bg-white border border-slate-200 rounded-lg text-slate-800 outline-none focus:border-emerald-600 cursor-pointer font-medium"
                           >
                             {COMMON_UNITS.map((u) => (
                               <option key={u} value={u}>
@@ -327,17 +308,6 @@ export const ProductQuantityForm: React.FC<ProductQuantityFormProps> = ({
                               </option>
                             ))}
                           </select>
-                        </td>
-
-                        {/* Notes / Specs */}
-                        <td className="py-2.5 px-3">
-                          <input
-                            type="text"
-                            value={item.notes || ''}
-                            onChange={(e) => handleFieldChange(idx, 'notes', e.target.value)}
-                            placeholder="e.g. Vacuum pack, Grade A"
-                            className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg text-slate-700 placeholder:text-slate-400 outline-none focus:border-emerald-600"
-                          />
                         </td>
 
                         {/* Delete Row */}
@@ -392,7 +362,7 @@ export const ProductQuantityForm: React.FC<ProductQuantityFormProps> = ({
                         type="text"
                         value={item.name}
                         onChange={(e) => handleFieldChange(idx, 'name', e.target.value)}
-                        placeholder="e.g. Basmati Rice 5kg"
+                        placeholder="e.g. Basmati Rice"
                         className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg text-slate-800 outline-none focus:border-emerald-600"
                       />
                       {nameErr && <p className="text-[10px] text-red-600">{nameErr}</p>}
@@ -420,7 +390,7 @@ export const ProductQuantityForm: React.FC<ProductQuantityFormProps> = ({
                         <select
                           value={item.unit}
                           onChange={(e) => handleFieldChange(idx, 'unit', e.target.value)}
-                          className="w-full px-2 py-2 text-xs bg-white border border-slate-200 rounded-lg text-slate-800 outline-none focus:border-emerald-600"
+                          className="w-full px-2 py-2 text-xs bg-white border border-slate-200 rounded-lg text-slate-800 outline-none focus:border-emerald-600 font-medium"
                         >
                           {COMMON_UNITS.map((u) => (
                             <option key={u} value={u}>
@@ -429,19 +399,6 @@ export const ProductQuantityForm: React.FC<ProductQuantityFormProps> = ({
                           ))}
                         </select>
                       </div>
-                    </div>
-
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-semibold text-slate-500 block">
-                        Notes / Specs (Optional)
-                      </label>
-                      <input
-                        type="text"
-                        value={item.notes || ''}
-                        onChange={(e) => handleFieldChange(idx, 'notes', e.target.value)}
-                        placeholder="e.g. Grade A, Daily supply"
-                        className="w-full px-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg text-slate-700 outline-none focus:border-emerald-600"
-                      />
                     </div>
                   </div>
                 );
