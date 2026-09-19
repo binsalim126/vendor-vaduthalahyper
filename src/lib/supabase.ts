@@ -344,7 +344,7 @@ export async function fetchSubmissions(): Promise<VendorSubmission[]> {
         }
 
         const cleaned = data.filter((s: VendorSubmission) => !isSampleSubmission(s)) as VendorSubmission[];
-        
+
         // Hydrate product_items from custom_answers._product_items if top-level column was missing
         cloudSubmissions = cleaned.map((sub) => {
           if ((!sub.product_items || sub.product_items.length === 0) && sub.custom_answers?._product_items) {
@@ -361,18 +361,53 @@ export async function fetchSubmissions(): Promise<VendorSubmission[]> {
     }
   }
 
-  // Merge with local submissions to ensure zero data loss across devices
+  // Get local submissions
   const localSubs = getLocalSubmissions();
-  const mergedMap = new Map<string, VendorSubmission>();
+  const cloudMap = new Map<string, VendorSubmission>();
+  cloudSubmissions.forEach((s) => cloudMap.set(s.id, s));
 
-  // Add local ones first
-  localSubs.forEach((s) => mergedMap.set(s.id, s));
-  // Add/overwrite with cloud ones
-  cloudSubmissions.forEach((s) => mergedMap.set(s.id, s));
+  // Auto-sync any local submissions that are not yet uploaded to Supabase Cloud
+  const unSyncedLocals = localSubs.filter((s) => !cloudMap.has(s.id));
+  if (unSyncedLocals.length > 0 && client) {
+    const uploadPayloads = unSyncedLocals.map((s) => {
+      const enrichedCustomAnswers = {
+        ...(s.custom_answers || {}),
+        _product_items: s.product_items || [],
+      };
+      const { product_items, ...compat } = s;
+      return {
+        ...compat,
+        custom_answers: enrichedCustomAnswers,
+      };
+    });
 
-  const allMerged = Array.from(mergedMap.values()).sort(
+    try {
+      client
+        .from('submissions')
+        .upsert(uploadPayloads)
+        .then(({ error: upsertErr }) => {
+          if (!upsertErr) {
+            console.log(`Auto-synced ${unSyncedLocals.length} local submissions to Supabase Cloud!`);
+          } else {
+            console.warn('Auto-sync upsert warning:', upsertErr.message);
+          }
+        });
+    } catch (syncErr) {
+      console.warn('Auto-sync error:', syncErr);
+    }
+
+    // Include unSyncedLocals in current results
+    unSyncedLocals.forEach((s) => cloudMap.set(s.id, s));
+  }
+
+  const allMerged = Array.from(cloudMap.values()).sort(
     (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
   );
+
+  // Keep local storage cache updated with complete merged data
+  if (allMerged.length > 0) {
+    setLocalSubmissions(allMerged);
+  }
 
   return allMerged;
 }
