@@ -57,7 +57,7 @@ export function App() {
   useEffect(() => {
     loadInitialData();
 
-    // Listen to hash changes
+    // Listen to hash changes & refetch data
     const handleHashChange = () => {
       if (window.location.hash === '#admin') {
         const currentUser = getCurrentAdminUser();
@@ -66,12 +66,19 @@ export function App() {
         } else {
           setView('admin_login');
         }
+        // Refetch submissions when navigating to admin
+        fetchSubmissions().then(setSubmissions).catch(() => {});
       } else if (window.location.hash === '' || window.location.hash === '#vendor') {
         setView('vendor');
       }
     };
 
     window.addEventListener('hashchange', handleHashChange);
+
+    // Background polling interval every 10s as a failsafe backup to Realtime
+    const pollInterval = setInterval(() => {
+      fetchSubmissions().then(setSubmissions).catch(() => {});
+    }, 10000);
 
     // Setup Supabase Realtime Listeners
     const unsubSubmissions = subscribeToSubmissions((payload) => {
@@ -96,10 +103,12 @@ export function App() {
 
     return () => {
       window.removeEventListener('hashchange', handleHashChange);
+      clearInterval(pollInterval);
       if (unsubSubmissions) unsubSubmissions();
       if (unsubQuestions) unsubQuestions();
     };
   }, []);
+
 
   const handleAdminLoginSuccess = (user: AdminUser) => {
     setAdminUser(user);

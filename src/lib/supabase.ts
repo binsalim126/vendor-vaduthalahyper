@@ -237,21 +237,35 @@ function setLocalSubmissions(submissions: VendorSubmission[]) {
 
 // ---------------- FORM QUESTIONS REPOSITORY ---------------- //
 
+// ---------------- FORM QUESTIONS REPOSITORY ---------------- //
+
 export async function fetchFormQuestions(): Promise<FormQuestion[]> {
   const client = getSupabaseClient();
   if (client) {
-    try {
-      const { data, error } = await client
-        .from('form_questions')
-        .select('*')
-        .order('order_index', { ascending: true });
+    const { data, error } = await client
+      .from('form_questions')
+      .select('*')
+      .order('order_index', { ascending: true });
 
-      if (error) throw error;
-      if (data && data.length > 0) {
-        return data as FormQuestion[];
-      }
+    if (error) {
+      console.error('Supabase fetch questions error:', error);
+      throw new Error(`Failed to fetch questions from Supabase: ${error.message}`);
+    }
+    if (data && data.length > 0) {
+      return data as FormQuestion[];
+    }
+
+    // Seed defaults into Supabase if empty
+    try {
+      const defaultWithCreated = DEFAULT_QUESTIONS.map((q) => ({
+        ...q,
+        created_at: new Date().toISOString(),
+      }));
+      await client.from('form_questions').upsert(defaultWithCreated);
+      return defaultWithCreated;
     } catch (err) {
-      console.warn('Supabase fetch questions failed, using local store:', err);
+      console.warn('Supabase questions auto-seed note:', err);
+      return DEFAULT_QUESTIONS;
     }
   }
   return getLocalQuestions();
@@ -260,21 +274,20 @@ export async function fetchFormQuestions(): Promise<FormQuestion[]> {
 export async function saveFormQuestion(question: FormQuestion): Promise<FormQuestion> {
   const client = getSupabaseClient();
   if (client) {
-    try {
-      const { data, error } = await client
-        .from('form_questions')
-        .upsert(question)
-        .select()
-        .single();
+    const { data, error } = await client
+      .from('form_questions')
+      .upsert(question)
+      .select()
+      .single();
 
-      if (error) throw error;
-      if (data) return data as FormQuestion;
-    } catch (err) {
-      console.warn('Supabase save question failed, saving to local store:', err);
+    if (error) {
+      console.error('Supabase save question error:', error);
+      throw new Error(`Failed to save question to Supabase: ${error.message}`);
     }
+    if (data) return data as FormQuestion;
   }
 
-  // Fallback to local storage
+  // Fallback to local storage ONLY if Supabase is unconfigured
   const questions = getLocalQuestions();
   const existingIdx = questions.findIndex((q) => q.id === question.id);
   if (existingIdx >= 0) {
@@ -289,16 +302,16 @@ export async function saveFormQuestion(question: FormQuestion): Promise<FormQues
 export async function deleteFormQuestion(questionId: string): Promise<boolean> {
   const client = getSupabaseClient();
   if (client) {
-    try {
-      const { error } = await client
-        .from('form_questions')
-        .delete()
-        .eq('id', questionId);
+    const { error } = await client
+      .from('form_questions')
+      .delete()
+      .eq('id', questionId);
 
-      if (error) throw error;
-    } catch (err) {
-      console.warn('Supabase delete question failed, deleting from local store:', err);
+    if (error) {
+      console.error('Supabase delete question error:', error);
+      throw new Error(`Failed to delete question from Supabase: ${error.message}`);
     }
+    return true;
   }
 
   const questions = getLocalQuestions();
@@ -312,26 +325,24 @@ export async function deleteFormQuestion(questionId: string): Promise<boolean> {
 export async function fetchSubmissions(): Promise<VendorSubmission[]> {
   const client = getSupabaseClient();
   if (client) {
-    try {
-      const { data, error } = await client
-        .from('submissions')
-        .select('*')
-        .order('created_at', { ascending: false });
+    const { data, error } = await client
+      .from('submissions')
+      .select('*')
+      .order('created_at', { ascending: false });
 
-      if (error) throw error;
-      if (data) {
-        // Auto purge sample submissions from Supabase if found
-        const sampleRecords = data.filter((s: VendorSubmission) => isSampleSubmission(s));
-        if (sampleRecords.length > 0) {
-          const sampleIds = sampleRecords.map((s: VendorSubmission) => s.id);
-          client.from('submissions').delete().in('id', sampleIds).then(() => {});
-        }
-        const cleaned = data.filter((s: VendorSubmission) => !isSampleSubmission(s)) as VendorSubmission[];
-        setLocalSubmissions(cleaned);
-        return cleaned;
+    if (error) {
+      console.error('Supabase fetch submissions error:', error);
+      throw new Error(`Failed to fetch submissions from Supabase: ${error.message}`);
+    }
+    if (data) {
+      // Auto-purge sample test records from Supabase
+      const sampleRecords = data.filter((s: VendorSubmission) => isSampleSubmission(s));
+      if (sampleRecords.length > 0) {
+        const sampleIds = sampleRecords.map((s: VendorSubmission) => s.id);
+        client.from('submissions').delete().in('id', sampleIds).then(() => {});
       }
-    } catch (err) {
-      console.warn('Supabase fetch submissions failed, using local store:', err);
+      const cleaned = data.filter((s: VendorSubmission) => !isSampleSubmission(s)) as VendorSubmission[];
+      return cleaned;
     }
   }
   return getLocalSubmissions();
@@ -355,25 +366,34 @@ export async function createVendorSubmission(
 
   const client = getSupabaseClient();
   if (client) {
-    try {
-      const { data, error } = await client
-        .from('submissions')
-        .insert([newSubmission])
-        .select()
-        .single();
+    // Try insert with select first
+    const { data, error } = await client
+      .from('submissions')
+      .insert([newSubmission])
+      .select();
 
-      if (error) throw error;
-      if (data) return data as VendorSubmission;
-    } catch (err) {
-      console.warn('Supabase insert submission failed, saving to local store:', err);
+    if (error) {
+      console.warn('Supabase insert with select failed, trying direct insert:', error.message);
+      const { error: plainErr } = await client
+        .from('submissions')
+        .insert([newSubmission]);
+
+      if (plainErr) {
+        console.error('Supabase direct insert error:', plainErr);
+        throw new Error(`Supabase Database Error (${plainErr.code || '42501'}): ${plainErr.message}. Please verify your Supabase database table & RLS policies.`);
+      }
     }
+    if (data && data.length > 0) return data[0] as VendorSubmission;
+    return newSubmission;
   }
 
+  // Fallback to local storage ONLY if Supabase is unconfigured
   const submissions = getLocalSubmissions();
   submissions.unshift(newSubmission);
   setLocalSubmissions(submissions);
   return newSubmission;
 }
+
 
 export async function updateSubmissionStatus(
   id: string,
@@ -382,19 +402,19 @@ export async function updateSubmissionStatus(
 ): Promise<boolean> {
   const client = getSupabaseClient();
   if (client) {
-    try {
-      const updatePayload: any = { status };
-      if (notes !== undefined) updatePayload.notes = notes;
+    const updatePayload: any = { status };
+    if (notes !== undefined) updatePayload.notes = notes;
 
-      const { error } = await client
-        .from('submissions')
-        .update(updatePayload)
-        .eq('id', id);
+    const { error } = await client
+      .from('submissions')
+      .update(updatePayload)
+      .eq('id', id);
 
-      if (error) throw error;
-    } catch (err) {
-      console.warn('Supabase update submission failed, updating local store:', err);
+    if (error) {
+      console.error('Supabase update submission status error:', error);
+      throw new Error(`Failed to update submission in Supabase: ${error.message}`);
     }
+    return true;
   }
 
   const submissions = getLocalSubmissions();
@@ -411,16 +431,16 @@ export async function updateSubmissionStatus(
 export async function deleteSubmission(id: string): Promise<boolean> {
   const client = getSupabaseClient();
   if (client) {
-    try {
-      const { error } = await client
-        .from('submissions')
-        .delete()
-        .eq('id', id);
+    const { error } = await client
+      .from('submissions')
+      .delete()
+      .eq('id', id);
 
-      if (error) throw error;
-    } catch (err) {
-      console.warn('Supabase delete submission failed, updating local store:', err);
+    if (error) {
+      console.error('Supabase delete submission error:', error);
+      throw new Error(`Failed to delete submission from Supabase: ${error.message}`);
     }
+    return true;
   }
 
   const submissions = getLocalSubmissions();
@@ -432,25 +452,25 @@ export async function deleteSubmission(id: string): Promise<boolean> {
 export async function clearAllSubmissions(): Promise<boolean> {
   const client = getSupabaseClient();
   if (client) {
-    try {
-      const { error } = await client
-        .from('submissions')
-        .delete()
-        .neq('id', '___force_clear_all___');
+    const { error } = await client
+      .from('submissions')
+      .delete()
+      .neq('id', '___force_clear_all___');
 
-      if (error) console.warn('Supabase clear submissions error:', error);
-    } catch (err) {
-      console.warn('Supabase clear submissions failed:', err);
+    if (error) {
+      console.error('Supabase clear submissions error:', error);
+      throw new Error(`Failed to clear submissions in Supabase: ${error.message}`);
     }
+    // Also purge local cache
+    localStorage.removeItem(STORAGE_KEYS.SUBMISSIONS);
+    return true;
   }
 
   localStorage.removeItem(STORAGE_KEYS.SUBMISSIONS);
-  localStorage.removeItem('vhs_vendor_submissions_v1');
-  localStorage.removeItem('vhs_vendor_submissions_v2');
-  localStorage.removeItem('vhs_vendor_submissions_v3');
   setLocalSubmissions([]);
   return true;
 }
+
 
 export async function resetQuestionsToCore(): Promise<FormQuestion[]> {
   const client = getSupabaseClient();
@@ -591,29 +611,25 @@ ALTER TABLE public.form_questions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.submissions ENABLE ROW LEVEL SECURITY;
 
 -- 4. Form Questions RLS Policies
--- Anyone (public/anon/authenticated) can read active form questions
 DROP POLICY IF EXISTS "Public form questions viewable by all" ON public.form_questions;
-CREATE POLICY "Public form questions viewable by all"
-    ON public.form_questions FOR SELECT
-    USING (true);
-
 DROP POLICY IF EXISTS "Admins full access to form questions" ON public.form_questions;
-CREATE POLICY "Admins full access to form questions"
+DROP POLICY IF EXISTS "Allow anon all form questions" ON public.form_questions;
+
+CREATE POLICY "Allow anon all form questions"
     ON public.form_questions FOR ALL
+    TO public
     USING (true)
     WITH CHECK (true);
 
--- 5. Submissions RLS Policies
--- Allow public insert, select, update, and delete on submissions
+-- 5. Submissions RLS Policies (Allows ALL devices to Insert, Read, Update, and Delete)
 DROP POLICY IF EXISTS "Public can insert vendor submissions" ON public.submissions;
-CREATE POLICY "Public can insert vendor submissions"
-    ON public.submissions FOR INSERT
-    WITH CHECK (true);
-
 DROP POLICY IF EXISTS "Admins full access to submissions" ON public.submissions;
 DROP POLICY IF EXISTS "Public full access to submissions" ON public.submissions;
-CREATE POLICY "Public full access to submissions"
+DROP POLICY IF EXISTS "Allow anon all submissions" ON public.submissions;
+
+CREATE POLICY "Allow anon all submissions"
     ON public.submissions FOR ALL
+    TO public
     USING (true)
     WITH CHECK (true);
 
@@ -627,6 +643,7 @@ BEGIN
 EXCEPTION
     WHEN OTHERS THEN NULL;
 END $$;
+
 
 -- 7. Insert Default Questions Seed
 INSERT INTO public.form_questions (id, label, type, placeholder, helper_text, required, is_default, order_index)
