@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   CheckCircle2, 
@@ -12,9 +12,12 @@ import {
   Building2, 
   Share2,
   Download,
-  Sparkles
+  Sparkles,
+  Loader2,
+  Image as ImageIcon
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import html2canvas from 'html2canvas';
 import { VendorSubmission } from '../../lib/types';
 
 interface SubmissionSuccessProps {
@@ -110,99 +113,49 @@ export const SubmissionSuccess: React.FC<SubmissionSuccessProps> = ({
     }
   };
 
-  // Handle Download Slip as a clean standalone HTML document
-  const handleDownloadSlip = () => {
-    const itemsRows = hasDetailedItems
-      ? submission.product_items!
-          .map(
-            (i, idx) =>
-              `<tr><td style="padding:6px;border:1px solid #cbd5e1;text-align:center;">${idx + 1}</td><td style="padding:6px;border:1px solid #cbd5e1;font-weight:bold;">${i.name}</td><td style="padding:6px;border:1px solid #cbd5e1;text-align:right;font-family:monospace;color:#047857;font-weight:bold;">${i.quantity}</td><td style="padding:6px;border:1px solid #cbd5e1;">${i.unit}</td></tr>`
-          )
-          .join('')
-      : submission.products
-          .map((p, idx) => `<tr><td style="padding:6px;border:1px solid #cbd5e1;text-align:center;">${idx + 1}</td><td style="padding:6px;border:1px solid #cbd5e1;" colspan="3">${p}</td></tr>`)
-          .join('');
+  const slipCardRef = useRef<HTMLDivElement>(null);
+  const [isDownloading, setIsDownloading] = useState(false);
 
-    const slipHtml = `<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <title>Vendor Registration Slip - ${submission.id}</title>
-  <style>
-    body { font-family: system-ui, -apple-system, sans-serif; padding: 30px; color: #0f172a; max-width: 650px; margin: 0 auto; line-height: 1.5; }
-    .header { border-bottom: 2px solid #0f172a; padding-bottom: 14px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
-    .title { font-size: 20px; font-weight: 800; text-transform: uppercase; color: #0f172a; }
-    .sub { font-size: 12px; color: #059669; font-weight: 600; }
-    .ref { font-family: monospace; font-size: 16px; font-weight: 800; color: #047857; text-align: right; }
-    .info { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-size: 12px; background: #f8fafc; padding: 14px; border-radius: 12px; border: 1px solid #e2e8f0; margin-bottom: 20px; }
-    table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 10px; }
-    th { background: #f1f5f9; padding: 8px; border: 1px solid #cbd5e1; text-align: left; font-size: 11px; text-transform: uppercase; }
-    .footer { margin-top: 30px; border-top: 1px solid #e2e8f0; padding-top: 14px; font-size: 11px; color: #64748b; }
-  </style>
-</head>
-<body>
-  <div class="header">
-    <div>
-      <div class="title">Vaduthala Hyper Shopee</div>
-      <div class="sub">Official Supplier Onboarding Confirmation Slip</div>
-    </div>
-    <div class="ref">
-      <div style="font-size: 10px; color: #94a3b8; text-transform: uppercase;">Ref ID</div>
-      ${submission.id}
-    </div>
-  </div>
+  // Handle Download Slip directly as a high-resolution PNG image file
+  const handleDownloadSlip = async (format: 'png' | 'jpg' = 'png') => {
+    if (!slipCardRef.current || isDownloading) return;
+    setIsDownloading(true);
 
-  <div class="info">
-    <div>
-      <strong style="color:#64748b; font-size:10px; text-transform:uppercase;">Vendor Name</strong><br>
-      <span style="font-size:14px; font-weight:bold;">${submission.venture_name}</span><br>
-      <span style="color:#475569;">Distribution: ${submission.company_name}</span>
-    </div>
-    <div>
-      <strong style="color:#64748b; font-size:10px; text-transform:uppercase;">Contact & Date</strong><br>
-      <span style="font-family:monospace; font-weight:bold;">Phone: ${submission.phone}</span><br>
-      <span style="color:#64748b;">${formattedDate} • ${formattedTime}</span>
-    </div>
-  </div>
+    try {
+      // Use html2canvas to capture the slip element as HD image
+      const canvas = await html2canvas(slipCardRef.current, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: '#ffffff',
+        logging: false,
+        ignoreElements: (element) => element.classList.contains('no-print'),
+      });
 
-  <div style="font-size: 12px; font-weight: bold; margin-bottom: 6px; text-transform: uppercase; color: #334155;">
-    Registered Product Catalogue Lines (${itemsCount})
-  </div>
-  <table>
-    <thead>
-      <tr>
-        <th style="width:30px;text-align:center;">#</th>
-        <th>Product / Item Description</th>
-        <th style="width:80px;text-align:right;">Quantity</th>
-        <th style="width:60px;">Unit</th>
-      </tr>
-    </thead>
-    <tbody>
-      ${itemsRows}
-    </tbody>
-  </table>
+      const mimeType = format === 'jpg' ? 'image/jpeg' : 'image/png';
+      const fileExt = format === 'jpg' ? 'jpg' : 'png';
+      const dataUrl = canvas.toDataURL(mimeType, 0.95);
 
-  <div class="footer">
-    Verified & recorded by Vaduthala Hyper Shopee Procurement Desk.<br>
-    <strong>Status: VERIFIED & SUBMITTED ON CLOUD DATABASE</strong>
-  </div>
-</body>
-</html>`;
+      const link = document.createElement('a');
+      link.download = `Vendor_Registration_Slip_${submission.id}.${fileExt}`;
+      link.href = dataUrl;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
 
-    const blob = new Blob([slipHtml], { type: 'text/html' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `Vendor_Registration_Slip_${submission.id}.html`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+      setShareStatus(`Slip image downloaded as ${fileExt.toUpperCase()}!`);
+      setTimeout(() => setShareStatus(null), 3500);
+    } catch (err) {
+      console.error('Failed to capture slip image:', err);
+      alert('Could not generate PNG image. Please try printing or copying reference ID.');
+    } finally {
+      setIsDownloading(false);
+    }
   };
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
       <motion.div
+        ref={slipCardRef}
         initial={{ opacity: 0, scale: 0.95, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         transition={{ duration: 0.4, ease: 'easeOut' }}
@@ -250,11 +203,21 @@ export const SubmissionSuccess: React.FC<SubmissionSuccessProps> = ({
 
             <button
               type="button"
-              onClick={handleDownloadSlip}
-              className="flex-1 sm:flex-none px-4 py-2.5 bg-slate-900 hover:bg-slate-800 active:bg-slate-950 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-md active:scale-95"
+              onClick={() => handleDownloadSlip('png')}
+              disabled={isDownloading}
+              className="flex-1 sm:flex-none px-4 py-2.5 bg-slate-900 hover:bg-slate-800 active:bg-slate-950 disabled:opacity-50 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-md active:scale-95"
             >
-              <Download className="w-4 h-4 text-emerald-400" />
-              <span>Download Slip</span>
+              {isDownloading ? (
+                <>
+                  <Loader2 className="w-4 h-4 text-emerald-400 animate-spin" />
+                  <span>Generating PNG...</span>
+                </>
+              ) : (
+                <>
+                  <ImageIcon className="w-4 h-4 text-emerald-400" />
+                  <span>Download Slip Image (PNG)</span>
+                </>
+              )}
             </button>
 
             <button
@@ -480,14 +443,24 @@ export const SubmissionSuccess: React.FC<SubmissionSuccessProps> = ({
                 <span>Share Slip</span>
               </button>
 
-              {/* Download Slip Button */}
+              {/* Download Slip Image Button (PNG) */}
               <button
                 type="button"
-                onClick={handleDownloadSlip}
-                className="py-3 px-4 bg-slate-900 hover:bg-slate-800 active:bg-slate-950 text-white font-bold text-xs sm:text-sm rounded-2xl flex items-center justify-center gap-2 transition-all shadow-md active:scale-[0.98]"
+                onClick={() => handleDownloadSlip('png')}
+                disabled={isDownloading}
+                className="py-3 px-4 bg-slate-900 hover:bg-slate-800 active:bg-slate-950 disabled:opacity-50 text-white font-bold text-xs sm:text-sm rounded-2xl flex items-center justify-center gap-2 transition-all shadow-md active:scale-[0.98]"
               >
-                <Download className="w-4 h-4 text-emerald-400" />
-                <span>Download Slip</span>
+                {isDownloading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 text-emerald-400 animate-spin" />
+                    <span>Generating Image...</span>
+                  </>
+                ) : (
+                  <>
+                    <ImageIcon className="w-4 h-4 text-emerald-400" />
+                    <span>Download Slip Image (PNG)</span>
+                  </>
+                )}
               </button>
             </div>
 

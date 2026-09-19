@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import html2canvas from 'html2canvas';
 import { 
   X, 
   Printer, 
@@ -18,7 +19,9 @@ import {
   ExternalLink,
   Share2,
   Download,
-  Sparkles
+  Sparkles,
+  Loader2,
+  Image as ImageIcon
 } from 'lucide-react';
 import { FormQuestion, SubmissionStatus, VendorSubmission } from '../../lib/types';
 
@@ -105,92 +108,41 @@ export const SubmissionDetailModal: React.FC<SubmissionDetailModalProps> = ({
     }
   };
 
-  const handleDownloadSlip = () => {
-    const itemsRows = hasDetailedItems
-      ? submission.product_items!
-          .map(
-            (i, idx) =>
-              `<tr><td style="padding:6px;border:1px solid #cbd5e1;text-align:center;">${idx + 1}</td><td style="padding:6px;border:1px solid #cbd5e1;font-weight:bold;">${i.name}</td><td style="padding:6px;border:1px solid #cbd5e1;text-align:right;font-family:monospace;color:#047857;font-weight:bold;">${i.quantity}</td><td style="padding:6px;border:1px solid #cbd5e1;">${i.unit}</td></tr>`
-          )
-          .join('')
-      : submission.products
-          .map((p, idx) => `<tr><td style="padding:6px;border:1px solid #cbd5e1;text-align:center;">${idx + 1}</td><td style="padding:6px;border:1px solid #cbd5e1;" colspan="3">${p}</td></tr>`)
-          .join('');
+  const modalRef = useRef<HTMLDivElement>(null);
+  const [isDownloading, setIsDownloading] = useState(false);
 
-    const slipHtml = `<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <title>Vendor Registration Slip - ${submission.id}</title>
-  <style>
-    body { font-family: system-ui, -apple-system, sans-serif; padding: 30px; color: #0f172a; max-width: 650px; margin: 0 auto; line-height: 1.5; }
-    .header { border-bottom: 2px solid #0f172a; padding-bottom: 14px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
-    .title { font-size: 20px; font-weight: 800; text-transform: uppercase; color: #0f172a; }
-    .sub { font-size: 12px; color: #059669; font-weight: 600; }
-    .ref { font-family: monospace; font-size: 16px; font-weight: 800; color: #047857; text-align: right; }
-    .info { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-size: 12px; background: #f8fafc; padding: 14px; border-radius: 12px; border: 1px solid #e2e8f0; margin-bottom: 20px; }
-    table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 10px; }
-    th { background: #f1f5f9; padding: 8px; border: 1px solid #cbd5e1; text-align: left; font-size: 11px; text-transform: uppercase; }
-    .footer { margin-top: 30px; border-top: 1px solid #e2e8f0; padding-top: 14px; font-size: 11px; color: #64748b; }
-  </style>
-</head>
-<body>
-  <div class="header">
-    <div>
-      <div class="title">Vaduthala Hyper Shopee</div>
-      <div class="sub">Official Supplier Onboarding Confirmation Slip</div>
-    </div>
-    <div class="ref">
-      <div style="font-size: 10px; color: #94a3b8; text-transform: uppercase;">Ref ID</div>
-      ${submission.id}
-    </div>
-  </div>
+  const handleDownloadSlip = async (format: 'png' | 'jpg' = 'png') => {
+    if (!modalRef.current || isDownloading) return;
+    setIsDownloading(true);
 
-  <div class="info">
-    <div>
-      <strong style="color:#64748b; font-size:10px; text-transform:uppercase;">Vendor Name</strong><br>
-      <span style="font-size:14px; font-weight:bold;">${submission.venture_name}</span><br>
-      <span style="color:#475569;">Distribution: ${submission.company_name}</span>
-    </div>
-    <div>
-      <strong style="color:#64748b; font-size:10px; text-transform:uppercase;">Contact</strong><br>
-      <span style="font-family:monospace; font-weight:bold;">Phone: ${submission.phone}</span>
-    </div>
-  </div>
+    try {
+      const canvas = await html2canvas(modalRef.current, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: '#ffffff',
+        logging: false,
+        ignoreElements: (element) => element.classList.contains('no-print'),
+      });
 
-  <div style="font-size: 12px; font-weight: bold; margin-bottom: 6px; text-transform: uppercase; color: #334155;">
-    Registered Product Catalogue Lines (${itemsCount})
-  </div>
-  <table>
-    <thead>
-      <tr>
-        <th style="width:30px;text-align:center;">#</th>
-        <th>Product / Item Description</th>
-        <th style="width:80px;text-align:right;">Quantity</th>
-        <th style="width:60px;">Unit</th>
-      </tr>
-    </thead>
-    <tbody>
-      ${itemsRows}
-    </tbody>
-  </table>
+      const mimeType = format === 'jpg' ? 'image/jpeg' : 'image/png';
+      const fileExt = format === 'jpg' ? 'jpg' : 'png';
+      const dataUrl = canvas.toDataURL(mimeType, 0.95);
 
-  <div class="footer">
-    Verified & recorded by Vaduthala Hyper Shopee Procurement Desk.<br>
-    <strong>Status: VERIFIED & SUBMITTED ON CLOUD DATABASE</strong>
-  </div>
-</body>
-</html>`;
+      const link = document.createElement('a');
+      link.download = `Vendor_Registration_Slip_${submission.id}.${fileExt}`;
+      link.href = dataUrl;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
 
-    const blob = new Blob([slipHtml], { type: 'text/html' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `Vendor_Registration_Slip_${submission.id}.html`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+      setShareStatus(`Slip downloaded as ${fileExt.toUpperCase()} image!`);
+      setTimeout(() => setShareStatus(null), 3500);
+    } catch (err) {
+      console.error('Failed to capture slip image:', err);
+      alert('Could not generate PNG image. Please try printing.');
+    } finally {
+      setIsDownloading(false);
+    }
   };
 
   const rawPhone = submission.phone.replace(/[^0-9]/g, '');
@@ -216,6 +168,7 @@ export const SubmissionDetailModal: React.FC<SubmissionDetailModalProps> = ({
     <AnimatePresence>
       <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6">
         <motion.div
+          ref={modalRef}
           initial={{ opacity: 0, scale: 0.96, y: 15 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.96 }}
@@ -250,12 +203,22 @@ export const SubmissionDetailModal: React.FC<SubmissionDetailModalProps> = ({
 
               <button
                 type="button"
-                onClick={handleDownloadSlip}
-                className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-lg border border-slate-700 flex items-center gap-1.5 transition-colors"
-                title="Download HTML registration slip"
+                onClick={() => handleDownloadSlip('png')}
+                disabled={isDownloading}
+                className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-slate-200 text-xs font-semibold rounded-lg border border-slate-700 flex items-center gap-1.5 transition-colors"
+                title="Download PNG image registration slip"
               >
-                <Download className="w-3.5 h-3.5 text-emerald-400" />
-                <span>Download Slip</span>
+                {isDownloading ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 text-emerald-400 animate-spin" />
+                    <span>Saving...</span>
+                  </>
+                ) : (
+                  <>
+                    <ImageIcon className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Download PNG</span>
+                  </>
+                )}
               </button>
 
               <button
@@ -336,11 +299,21 @@ export const SubmissionDetailModal: React.FC<SubmissionDetailModalProps> = ({
                 </button>
                 <button
                   type="button"
-                  onClick={handleDownloadSlip}
-                  className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs"
+                  onClick={() => handleDownloadSlip('png')}
+                  disabled={isDownloading}
+                  className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs"
                 >
-                  <Download className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>Download Slip</span>
+                  {isDownloading ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 text-emerald-400 animate-spin" />
+                      <span>Generating Image...</span>
+                    </>
+                  ) : (
+                    <>
+                      <ImageIcon className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>Download PNG Slip</span>
+                    </>
+                  )}
                 </button>
                 <a
                   href={`tel:${submission.phone}`}

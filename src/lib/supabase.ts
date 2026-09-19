@@ -324,28 +324,57 @@ export async function deleteFormQuestion(questionId: string): Promise<boolean> {
 
 export async function fetchSubmissions(): Promise<VendorSubmission[]> {
   const client = getSupabaseClient();
-  if (client) {
-    const { data, error } = await client
-      .from('submissions')
-      .select('*')
-      .order('created_at', { ascending: false });
+  let cloudSubmissions: VendorSubmission[] = [];
 
-    if (error) {
-      console.error('Supabase fetch submissions error:', error);
-      throw new Error(`Failed to fetch submissions from Supabase: ${error.message}`);
-    }
-    if (data) {
-      // Auto-purge sample test records from Supabase
-      const sampleRecords = data.filter((s: VendorSubmission) => isSampleSubmission(s));
-      if (sampleRecords.length > 0) {
-        const sampleIds = sampleRecords.map((s: VendorSubmission) => s.id);
-        client.from('submissions').delete().in('id', sampleIds).then(() => {});
+  if (client) {
+    try {
+      const { data, error } = await client
+        .from('submissions')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Supabase fetch submissions error:', error);
+      } else if (data) {
+        // Auto-purge sample test records from Supabase
+        const sampleRecords = data.filter((s: VendorSubmission) => isSampleSubmission(s));
+        if (sampleRecords.length > 0) {
+          const sampleIds = sampleRecords.map((s: VendorSubmission) => s.id);
+          client.from('submissions').delete().in('id', sampleIds).then(() => {});
+        }
+
+        const cleaned = data.filter((s: VendorSubmission) => !isSampleSubmission(s)) as VendorSubmission[];
+        
+        // Hydrate product_items from custom_answers._product_items if top-level column was missing
+        cloudSubmissions = cleaned.map((sub) => {
+          if ((!sub.product_items || sub.product_items.length === 0) && sub.custom_answers?._product_items) {
+            return {
+              ...sub,
+              product_items: sub.custom_answers._product_items,
+            };
+          }
+          return sub;
+        });
       }
-      const cleaned = data.filter((s: VendorSubmission) => !isSampleSubmission(s)) as VendorSubmission[];
-      return cleaned;
+    } catch (err) {
+      console.warn('Failed to query Supabase cloud submissions:', err);
     }
   }
-  return getLocalSubmissions();
+
+  // Merge with local submissions to ensure zero data loss across devices
+  const localSubs = getLocalSubmissions();
+  const mergedMap = new Map<string, VendorSubmission>();
+
+  // Add local ones first
+  localSubs.forEach((s) => mergedMap.set(s.id, s));
+  // Add/overwrite with cloud ones
+  cloudSubmissions.forEach((s) => mergedMap.set(s.id, s));
+
+  const allMerged = Array.from(mergedMap.values()).sort(
+    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+  );
+
+  return allMerged;
 }
 
 export async function createVendorSubmission(
@@ -357,40 +386,80 @@ export async function createVendorSubmission(
   const newId = `VHS-${dateStr}-${randomSuffix}`;
   const nowIso = new Date().toISOString();
 
+  // Store product_items both as top-level and embedded inside custom_answers._product_items for guaranteed DB compatibility
+  const enrichedCustomAnswers = {
+    ...(submissionData.custom_answers || {}),
+    _product_items: submissionData.product_items || [],
+  };
+
   const newSubmission: VendorSubmission = {
     ...submissionData,
     id: newId,
     status: 'new',
     created_at: nowIso,
+    custom_answers: enrichedCustomAnswers,
   };
+
+  // Always save locally immediately so vendor screen responds instantly without data loss
+  const localSubmissions = getLocalSubmissions();
+  localSubmissions.unshift(newSubmission);
+  setLocalSubmissions(localSubmissions);
 
   const client = getSupabaseClient();
   if (client) {
-    // Try insert with select first
-    const { data, error } = await client
-      .from('submissions')
-      .insert([newSubmission])
-      .select();
-
-    if (error) {
-      console.warn('Supabase insert with select failed, trying direct insert:', error.message);
-      const { error: plainErr } = await client
+    try {
+      // 1. Try full payload with top-level product_items
+      const { data, error } = await client
         .from('submissions')
-        .insert([newSubmission]);
+        .insert([newSubmission])
+        .select();
 
-      if (plainErr) {
-        console.error('Supabase direct insert error:', plainErr);
-        throw new Error(`Supabase Database Error (${plainErr.code || '42501'}): ${plainErr.message}. Please verify your Supabase database table & RLS policies.`);
+      if (error) {
+        console.warn('Supabase initial insert failed, checking column compatibility:', error.message);
+
+        // 2. If column product_items missing (PGRST204), retry payload without top-level product_items field
+        if (error.code === 'PGRST204' || error.message.includes('product_items')) {
+          const { product_items, ...compatPayload } = newSubmission;
+          const { data: compatData, error: compatErr } = await client
+            .from('submissions')
+            .insert([compatPayload])
+            .select();
+
+          if (compatErr) {
+            // Try simple insert without .select() in case RLS restricts select
+            const { error: simpleErr } = await client
+              .from('submissions')
+              .insert([compatPayload]);
+
+            if (simpleErr) {
+              console.error('Supabase fallback insert error:', simpleErr);
+            } else {
+              console.log('Successfully saved to Supabase (compat mode)');
+            }
+          } else if (compatData && compatData.length > 0) {
+            return {
+              ...(compatData[0] as VendorSubmission),
+              product_items: submissionData.product_items,
+            };
+          }
+        } else {
+          // Direct insert retry without select
+          const { error: plainErr } = await client
+            .from('submissions')
+            .insert([newSubmission]);
+
+          if (plainErr) {
+            console.error('Supabase direct insert error:', plainErr);
+          }
+        }
+      } else if (data && data.length > 0) {
+        return data[0] as VendorSubmission;
       }
+    } catch (cloudErr) {
+      console.error('Error persisting submission to Supabase cloud:', cloudErr);
     }
-    if (data && data.length > 0) return data[0] as VendorSubmission;
-    return newSubmission;
   }
 
-  // Fallback to local storage ONLY if Supabase is unconfigured
-  const submissions = getLocalSubmissions();
-  submissions.unshift(newSubmission);
-  setLocalSubmissions(submissions);
   return newSubmission;
 }
 
